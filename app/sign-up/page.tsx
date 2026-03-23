@@ -22,6 +22,9 @@ const initialFormData: FormData = {
 export default function SignUpPage() {
 	const [formData, setFormData] = useState<FormData>(initialFormData);
 	const [submitted, setSubmitted] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [serverError, setServerError] = useState<string | null>(null);
+	const [serverSuccess, setServerSuccess] = useState<string | null>(null);
 
 	const passwordsMatch = useMemo(
 		() =>
@@ -41,18 +44,47 @@ export default function SignUpPage() {
 		passwordsMatch &&
 		formData.termsAccepted;
 
-	function handleSubmit(event: FormEvent<HTMLFormElement>) {
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setSubmitted(true);
+		setServerError(null);
+		setServerSuccess(null);
 
 		if (!canSubmit) {
 			return;
 		}
 
-		// Placeholder submission behavior for now.
-		alert("Account created successfully.");
-		setFormData(initialFormData);
-		setSubmitted(false);
+		setIsLoading(true);
+
+		try {
+			const response = await fetch("/api/auth/sign-up/email", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				credentials: "include",
+				body: JSON.stringify({
+					name: formData.fullName.trim(),
+					email: formData.email.trim(),
+					password: formData.password,
+				}),
+			});
+
+			const result = (await response.json().catch(() => null)) as { message?: string } | null;
+
+			if (!response.ok) {
+				setServerError(result?.message ?? "Unable to create your account right now.");
+				return;
+			}
+
+			setServerSuccess("Account created successfully. You can now log in.");
+			setFormData(initialFormData);
+			setSubmitted(false);
+		} catch {
+			setServerError("Unable to create your account right now.");
+		} finally {
+			setIsLoading(false);
+		}
 	}
 
 	return (
@@ -158,12 +190,15 @@ export default function SignUpPage() {
 						<p className="text-xs text-rose-600">Please accept the terms to continue.</p>
 					) : null}
 
+					{serverError ? <p className="text-sm text-rose-600">{serverError}</p> : null}
+					{serverSuccess ? <p className="text-sm text-emerald-700">{serverSuccess}</p> : null}
+
 					<button
 						type="submit"
 						className="mt-2 w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-300"
-						disabled={!canSubmit && submitted}
+						disabled={isLoading || (!canSubmit && submitted)}
 					>
-						Create Account
+						{isLoading ? "Creating Account..." : "Create Account"}
 					</button>
 				</form>
 
