@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const authRoutes = ["/sign-in", "/sign-up"];
+const internalAuthHeader = "x-internal-auth-check";
 
 async function hasActiveSession(request: NextRequest) {
 	const cookie = request.headers.get("cookie") ?? "";
@@ -13,7 +14,9 @@ async function hasActiveSession(request: NextRequest) {
 		const sessionRes = await fetch(new URL("/api/auth/get-session", request.url), {
 			headers: {
 				cookie,
+				[internalAuthHeader]: process.env.BETTER_AUTH_SECRET ?? "",
 			},
+			cache: "no-store",
 		});
 
 		if (!sessionRes.ok) {
