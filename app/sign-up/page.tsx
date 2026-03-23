@@ -77,7 +77,7 @@ export default function SignUpPage() {
 			
 			// Redirect after a brief delay
 			setTimeout(() => {
-				router.push("/log-in");
+				router.push("/sign-in");
 				router.refresh();
 			}, 1500);
 		} catch {
@@ -204,7 +204,7 @@ export default function SignUpPage() {
 
 				<p className="mt-6 text-center text-sm text-slate-600">
 					Already have an account?{" "}
-					<Link href="/log-in" className="font-semibold text-emerald-700 hover:text-emerald-800">
+					<Link href="/sign-in" className="font-semibold text-emerald-700 hover:text-emerald-800">
 						Log in
 					</Link>
 				</p>

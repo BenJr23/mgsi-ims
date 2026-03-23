@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const authRoutes = ["/log-in", "/sign-up"];
+const authRoutes = ["/sign-in", "/sign-up"];
 
 async function hasActiveSession(request: NextRequest) {
 	const cookie = request.headers.get("cookie") ?? "";
@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
 	const loggedIn = await hasActiveSession(request);
 
 	if (!loggedIn && !isAuthRoute) {
-		const signInUrl = new URL("/log-in", request.url);
+		const signInUrl = new URL("/sign-in", request.url);
 		signInUrl.searchParams.set("next", pathname);
 		return NextResponse.redirect(signInUrl);
 	}
