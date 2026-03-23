@@ -1,6 +1,8 @@
 "use client";
 
+import { signUpWithEmailAction } from "@/app/_actions/auth";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
 type FormData = {
@@ -25,6 +27,7 @@ export default function SignUpPage() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [serverError, setServerError] = useState<string | null>(null);
 	const [serverSuccess, setServerSuccess] = useState<string | null>(null);
+	const router = useRouter();
 
 	const passwordsMatch = useMemo(
 		() =>
@@ -57,29 +60,26 @@ export default function SignUpPage() {
 		setIsLoading(true);
 
 		try {
-			const response = await fetch("/api/auth/sign-up/email", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				credentials: "include",
-				body: JSON.stringify({
-					name: formData.fullName.trim(),
-					email: formData.email.trim(),
-					password: formData.password,
-				}),
+			const result = await signUpWithEmailAction({
+				name: formData.fullName.trim(),
+				email: formData.email.trim(),
+				password: formData.password,
 			});
 
-			const result = (await response.json().catch(() => null)) as { message?: string } | null;
-
-			if (!response.ok) {
-				setServerError(result?.message ?? "Unable to create your account right now.");
+			if (!result.ok) {
+				setServerError(result.message);
 				return;
 			}
 
-			setServerSuccess("Account created successfully. You can now log in.");
+			setServerSuccess("Account created successfully! Redirecting...");
 			setFormData(initialFormData);
 			setSubmitted(false);
+			
+			// Redirect after a brief delay
+			setTimeout(() => {
+				router.push("/log-in");
+				router.refresh();
+			}, 1500);
 		} catch {
 			setServerError("Unable to create your account right now.");
 		} finally {

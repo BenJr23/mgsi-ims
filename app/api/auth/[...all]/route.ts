@@ -4,4 +4,4 @@ import { auth } from "@/lib/auth";
 
 const handler = toNextJsHandler(auth);
 
-export const { GET, POST, PUT, PATCH, DELETE } = handler;
+export const { GET, POST } = handler;

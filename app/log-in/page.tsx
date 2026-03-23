@@ -1,5 +1,6 @@
 "use client";
 
+import { signInWithEmailAction } from "@/app/_actions/auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
@@ -40,22 +41,13 @@ export default function LogInPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/sign-in/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      const result = await signInWithEmailAction({
+        email: formData.email.trim(),
+        password: formData.password,
       });
 
-      const result = (await response.json().catch(() => null)) as { message?: string } | null;
-
-      if (!response.ok) {
-        setServerError(result?.message ?? "Invalid email or password.");
+      if (!result.ok) {
+        setServerError(result.message);
         return;
       }
 
