@@ -1,5 +1,5 @@
 @echo off
-cd /d "C:\Users\kylee\OneDrive\Desktop\ims\mgsi-ims"
+cd /d "C:\Users\kylee\OneDrive\Desktop\ims\mgsi-ims"            
 
 start cmd /c "npm run dev"
 
