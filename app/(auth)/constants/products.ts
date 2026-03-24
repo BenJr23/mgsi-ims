@@ -6,6 +6,8 @@ export interface Product {
   id: string;
   name: string;
   sku: string;
+  barcode: string;
+  stock: number;
   price: string;
   category: string;
   status: string;
@@ -25,6 +27,8 @@ export const PRODUCTS: Product[] = [
     id: '1',
     name: 'Wireless Bluetooth Headphones',
     sku: 'SKU-7291',
+    barcode: '8901001000011',
+    stock: 74,
     price: '$79.99',
     category: 'Electronics',
     status: 'In Stock'
@@ -33,6 +37,8 @@ export const PRODUCTS: Product[] = [
     id: '2',
     name: 'Organic Cotton T-Shirt (M)',
     sku: 'SKU-4518',
+    barcode: '8901001000028',
+    stock: 8,
     price: '$24.99',
     category: 'Apparel',
     status: 'Low Stock'
@@ -41,6 +47,8 @@ export const PRODUCTS: Product[] = [
     id: '3',
     name: 'Stainless Steel Water Bottle',
     sku: 'SKU-8834',
+    barcode: '8901001000035',
+    stock: 0,
     price: '$19.99',
     category: 'Kitchen',
     status: 'Out of Stock'
@@ -49,6 +57,8 @@ export const PRODUCTS: Product[] = [
     id: '4',
     name: 'USB-C Charging Cable 6ft',
     sku: 'SKU-2201',
+    barcode: '8901001000042',
+    stock: 52,
     price: '$12.99',
     category: 'Electronics',
     status: 'In Stock'
@@ -57,6 +67,8 @@ export const PRODUCTS: Product[] = [
     id: '5',
     name: 'Bamboo Cutting Board Set',
     sku: 'SKU-6673',
+    barcode: '8901001000059',
+    stock: 12,
     price: '$34.99',
     category: 'Kitchen',
     status: 'Low Stock'
@@ -65,6 +77,8 @@ export const PRODUCTS: Product[] = [
     id: '6',
     name: 'Running Shoes (Size 10)',
     sku: 'SKU-3390',
+    barcode: '8901001000066',
+    stock: 37,
     price: '$89.99',
     category: 'Footwear',
     status: 'In Stock'
@@ -73,6 +87,8 @@ export const PRODUCTS: Product[] = [
     id: '7',
     name: 'Ceramic Coffee Mug 12oz',
     sku: 'SKU-1147',
+    barcode: '8901001000073',
+    stock: 0,
     price: '$14.99',
     category: 'Kitchen',
     status: 'Out of Stock'
@@ -81,6 +97,8 @@ export const PRODUCTS: Product[] = [
     id: '8',
     name: 'Laptop Sleeve 15 inch',
     sku: 'SKU-5562',
+    barcode: '8901001000080',
+    stock: 46,
     price: '$29.99',
     category: 'Accessories',
     status: 'In Stock'

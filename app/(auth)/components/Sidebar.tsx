@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboardIcon,
   PackageIcon,
+  ScanLineIcon,
   ShoppingCartIcon,
   TruckIcon,
   BarChart3Icon,
@@ -16,6 +17,10 @@ const NAV_ITEMS = [
 {
   name: 'Products',
   icon: PackageIcon
+},
+{
+  name: 'Stock Scanner',
+  icon: ScanLineIcon
 },
 {
   name: 'Orders',

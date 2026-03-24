@@ -8,6 +8,7 @@ import { Orders } from './(auth)/pages/Orders';
 import { Suppliers } from './(auth)/pages/Suppliers';
 import { Reports } from './(auth)/pages/Reports';
 import { Settings } from './(auth)/pages/Settings';
+import { StockAdjust } from './(auth)/pages/StockAdjust';
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState('Dashboard');
@@ -18,6 +19,8 @@ export default function Page() {
         return <Dashboard />;
       case 'Products':
         return <Products />;
+      case 'Stock Scanner':
+        return <StockAdjust />;
       case 'Orders':
         return <Orders />;
       case 'Suppliers':
