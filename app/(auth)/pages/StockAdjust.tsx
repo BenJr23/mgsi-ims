@@ -357,7 +357,7 @@ export function StockAdjust() {
                       placeholder={
                         toggleCooldown > 0
                           ? `Switching action — ready in ${toggleCooldown}s...`
-                          : 'Scan and press Enter'
+                          : 'Scan'
                       }
                       className={`w-full h-12 px-3 rounded-lg border text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition-colors ${
                         toggleCooldown > 0
