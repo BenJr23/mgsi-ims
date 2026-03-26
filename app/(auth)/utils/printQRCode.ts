@@ -12,13 +12,36 @@ export interface Product {
   status: string;
 }
 
+const withProtocol = (url: string): string => {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `https://${url}`;
+};
+
+export const resolveQrBaseUrl = (fallbackOrigin: string): string => {
+  const configured = process.env.NEXT_PUBLIC_QR_BASE_URL?.trim();
+  const rawBaseUrl = configured || fallbackOrigin;
+  return withProtocol(rawBaseUrl).replace(/\/$/, '');
+};
+
+const buildProductUrl = (baseUrl: string, productId: string): string => {
+  const normalized = baseUrl.replace(/\/$/, '');
+  return `${normalized}/${productId}`;
+};
+
+export const getProductScanUrl = (productId: string, fallbackOrigin: string): string => {
+  return buildProductUrl(resolveQrBaseUrl(fallbackOrigin), productId);
+};
+
 /**
  * Generate HTML for bulk QR code printing (multiple products with multiple copies)
- * QR codes encode the product ID (e.g., "thing1", "thing2", etc.)
+ * QR codes encode a product link (e.g., https://your-domain/item/123)
  */
 export function generateBulkPrintHTML(
   products: Product[],
-  selectedMap: Map<string, number>
+  selectedMap: Map<string, number>,
+  baseUrl: string
 ): string {
   let html = `
     <!DOCTYPE html>
@@ -95,11 +118,10 @@ export function generateBulkPrintHTML(
           align-items: center;
           width: 100%;
         }
+        .label-qrcode canvas,
         .label-qrcode img {
-          max-height: 0.65in;
-          max-width: 0.65in;
-          width: auto;
-          height: auto;
+          width: 0.85in;
+          height: 0.85in;
         }
         .label-id {
           font-size: 9pt;
@@ -154,7 +176,7 @@ export function generateBulkPrintHTML(
           <div class="label">
             <div class="label-title">${product.name}</div>
             <div class="label-qrcode">
-              <canvas id="${qrId}" data-product-id="${product.id}"></canvas>
+              <canvas id="${qrId}" data-product-id="${product.id}" width="220" height="220"></canvas>
             </div>
             <div class="label-id">ID: ${product.id}</div>
             <div class="label-meta">
@@ -172,6 +194,7 @@ export function generateBulkPrintHTML(
       </div>
       <script>
         const products = ${JSON.stringify(products)};
+        const baseUrl = ${JSON.stringify(baseUrl)};
         const qrStage = document.createElement('div');
         qrStage.style.position = 'absolute';
         qrStage.style.left = '-9999px';
@@ -230,7 +253,7 @@ export function generateBulkPrintHTML(
           const product = products.find(p => p.id === productId);
           
           if (product) {
-            drawQrToCanvas(canvas, product.id, 150);
+            drawQrToCanvas(canvas, baseUrl + '/' + product.id, 220);
           }
         });
         
@@ -247,6 +270,7 @@ export function generateBulkPrintHTML(
  * Print a single product QR code
  */
 export function printSingleBarcode(product: Product): void {
+  const productUrl = getProductScanUrl(product.id, window.location.origin);
   const printWindow = window.open('', '', 'width=400,height=400');
   if (!printWindow) {
     alert('Please allow pop-ups to print QR codes');
@@ -299,10 +323,8 @@ export function printSingleBarcode(product: Product): void {
           align-items: center;
         }
         .qrcode-container canvas {
-          max-width: 1in;
-          max-height: 1in;
-          width: auto;
-          height: auto;
+          width: 1in;
+          height: 1in;
         }
         .product-id {
           font-size: 10pt;
@@ -329,13 +351,14 @@ export function printSingleBarcode(product: Product): void {
       <div class="label">
         <div class="title">${product.name}</div>
         <div class="qrcode-container">
-          <canvas id="qrcode"></canvas>
+          <canvas id="qrcode" width="240" height="240"></canvas>
         </div>
         <div class="product-id">ID: ${product.id}</div>
         <div class="meta">${product.sku} | ${product.price}</div>
       </div>
       <script>
         const product = ${JSON.stringify(product)};
+        const productUrl = ${JSON.stringify(productUrl)};
         const qrStage = document.createElement('div');
         qrStage.style.position = 'absolute';
         qrStage.style.left = '-9999px';
@@ -345,7 +368,7 @@ export function printSingleBarcode(product: Product): void {
         qrStage.appendChild(holder);
         
         new QRCode(holder, {
-          text: product.id,
+          text: productUrl,
           width: 180,
           height: 180,
           colorDark: "#000000",
@@ -396,6 +419,7 @@ export function printSingleBarcode(product: Product): void {
  * Print multiple copies of the same product QR code on A4 page
  */
 export function printMultipleCopies(product: Product, quantity: number): void {
+  const productUrl = getProductScanUrl(product.id, window.location.origin);
   if (!quantity || quantity <= 0) {
     alert('Please enter a valid quantity');
     return;
@@ -465,10 +489,8 @@ export function printMultipleCopies(product: Product, quantity: number): void {
           align-items: center;
         }
         .qrcode-container canvas {
-          max-width: 1.2in;
-          max-height: 1.2in;
-          width: auto;
-          height: auto;
+          width: 1.15in;
+          height: 1.15in;
         }
         .product-id {
           font-size: 9pt;
@@ -539,7 +561,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
       <div class="qr-label">
         <div class="product-name">${product.name}</div>
         <div class="qrcode-container">
-          <canvas id="qrcode-${i}"></canvas>
+          <canvas id="qrcode-${i}" width="260" height="260"></canvas>
         </div>
         <div class="product-id">ID: ${product.id}</div>
         <div class="sku">${product.sku} | ${product.price}</div>
@@ -551,6 +573,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
       </div>
       <script>
         const product = ${JSON.stringify(product)};
+        const productUrl = ${JSON.stringify(productUrl)};
         const qrStage = document.createElement('div');
         qrStage.style.position = 'absolute';
         qrStage.style.left = '-9999px';
@@ -603,7 +626,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
         };
         
         document.querySelectorAll('canvas[id^="qrcode-"]').forEach(canvas => {
-          drawQrToCanvas(canvas, product.id, 200);
+          drawQrToCanvas(canvas, productUrl, 260);
         });
         
         setTimeout(() => { window.print(); }, 800);

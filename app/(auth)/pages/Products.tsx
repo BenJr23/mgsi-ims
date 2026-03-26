@@ -9,7 +9,7 @@ import { PlusIcon, SearchIcon, FilterIcon, PrinterIcon, CheckIcon } from 'lucide
 // Constants and utilities
 import { CATEGORIES, PRODUCTS } from '../constants/products';
 import { containerVariants, itemVariants } from '../utils/productHelpers';
-import { generateBulkPrintHTML } from '../utils/printQRCode';
+import { generateBulkPrintHTML, resolveQrBaseUrl } from '../utils/printQRCode';
 
 export function Products() {
   const [selectedProducts, setSelectedProducts] = useState<Map<string, number>>(new Map());
@@ -50,7 +50,8 @@ export function Products() {
       return;
     }
 
-    const html = generateBulkPrintHTML(PRODUCTS, selectedProducts);
+    const qrBaseUrl = resolveQrBaseUrl(window.location.origin);
+    const html = generateBulkPrintHTML(PRODUCTS, selectedProducts, qrBaseUrl);
     printWindow.document.write(html);
     printWindow.document.close();
   };

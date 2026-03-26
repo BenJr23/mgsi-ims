@@ -10,7 +10,7 @@ import type { Variants } from 'framer-motion';
 
 import type { Product } from '../constants/products';
 import { getStatusStyles } from '../utils/productHelpers';
-import { printSingleBarcode, printMultipleCopies } from '../utils/printQRCode';
+import { getProductScanUrl, printSingleBarcode, printMultipleCopies } from '../utils/printQRCode';
 
 interface ProductCardProps {
   product: Product;
@@ -45,7 +45,7 @@ function QRCodeDisplay({ productId }: { productId: string }) {
       document.body.appendChild(tempContainer);
 
       new QRCodeLib(tempContainer, {
-        text: productId,
+        text: getProductScanUrl(productId, window.location.origin),
         width: 130,
         height: 130,
         colorDark: '#000000',

@@ -33,9 +33,10 @@ async function hasActiveSession(request: NextRequest) {
 export async function proxy(request: NextRequest) {
 	const pathname = request.nextUrl.pathname;
 	const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+	const isPublicItemRoute = /^\/\d+$/.test(pathname);
 	const loggedIn = await hasActiveSession(request);
 
-	if (!loggedIn && !isAuthRoute) {
+	if (!loggedIn && !isAuthRoute && !isPublicItemRoute) {
 		const signInUrl = new URL("/sign-in", request.url);
 		signInUrl.searchParams.set("next", pathname);
 		return NextResponse.redirect(signInUrl);
