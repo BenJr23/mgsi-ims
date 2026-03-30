@@ -36,6 +36,7 @@ export const getProductScanUrl = (productId: string, fallbackOrigin: string): st
   return buildProductUrl(resolveQrBaseUrl(fallbackOrigin), productId);
 };
 
+
 export const getQrLogoUrl = (baseUrl: string): string => {
   return new URL(QR_LOGO_PATH, withProtocol(baseUrl)).toString();
 };
@@ -646,4 +647,3 @@ export function printMultipleCopies(product: Product, quantity: number): void {
   printWindow.document.write(html);
   printWindow.document.close();
 }
-
