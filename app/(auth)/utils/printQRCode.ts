@@ -12,6 +12,8 @@ export interface Product {
   status: string;
 }
 
+const QR_LOGO_PATH = '/logo/GWlogo.webp';
+
 const withProtocol = (url: string): string => {
   if (/^https?:\/\//i.test(url)) {
     return url;
@@ -34,6 +36,10 @@ export const getProductScanUrl = (productId: string, fallbackOrigin: string): st
   return buildProductUrl(resolveQrBaseUrl(fallbackOrigin), productId);
 };
 
+export const getQrLogoUrl = (baseUrl: string): string => {
+  return new URL(QR_LOGO_PATH, withProtocol(baseUrl)).toString();
+};
+
 /**
  * Generate HTML for bulk QR code printing (multiple products with multiple copies)
  * QR codes encode a product link (e.g., https://your-domain/item/123)
@@ -43,6 +49,7 @@ export function generateBulkPrintHTML(
   selectedMap: Map<string, number>,
   baseUrl: string
 ): string {
+  const logoUrl = getQrLogoUrl(baseUrl);
   let html = `
     <!DOCTYPE html>
     <html>
@@ -103,41 +110,20 @@ export function generateBulkPrintHTML(
           overflow: hidden;
           gap: 4px;
         }
-        .label-title {
-          font-size: 8pt;
-          font-weight: bold;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-          text-align: center;
-        }
         .label-qrcode {
           display: flex;
           justify-content: center;
           align-items: center;
           width: 100%;
         }
-        .label-qrcode canvas,
-        .label-qrcode img {
-          width: 0.85in;
-          height: 0.85in;
+        .label-qrcode canvas {
+          width: 0.78in;
+          height: 0.78in;
         }
-        .label-id {
-          font-size: 9pt;
-          font-weight: bold;
-          text-align: center;
-          color: #1f2937;
-          letter-spacing: 0.5px;
-        }
-        .label-meta {
-          display: flex;
-          justify-content: space-between;
-          width: 90%;
-          font-size: 6pt;
-          font-family: monospace;
-          text-align: center;
-          gap: 4px;
+        .label-logo {
+          width: 0.88in;
+          height: 0.18in;
+          object-fit: contain;
         }
 
         @media print {
@@ -174,15 +160,10 @@ export function generateBulkPrintHTML(
         const qrId = `qrcode-${productId}-${i}`;
         html += `
           <div class="label">
-            <div class="label-title">${product.name}</div>
             <div class="label-qrcode">
               <canvas id="${qrId}" data-product-id="${product.id}" width="220" height="220"></canvas>
             </div>
-            <div class="label-id">ID: ${product.id}</div>
-            <div class="label-meta">
-              <span>${product.sku}</span>
-              <span>${product.price}</span>
-            </div>
+            <img class="label-logo" src="${logoUrl}" alt="Great Work logo" />
           </div>
         `;
       }
@@ -195,6 +176,7 @@ export function generateBulkPrintHTML(
       <script>
         const products = ${JSON.stringify(products)};
         const baseUrl = ${JSON.stringify(baseUrl)};
+        const logoUrl = ${JSON.stringify(logoUrl)};
         const qrStage = document.createElement('div');
         qrStage.style.position = 'absolute';
         qrStage.style.left = '-9999px';
@@ -202,6 +184,7 @@ export function generateBulkPrintHTML(
         document.body.appendChild(qrStage);
 
         const drawQrToCanvas = (targetCanvas, text, size) => {
+          return new Promise((resolve) => {
           const holder = document.createElement('div');
           qrStage.appendChild(holder);
 
@@ -217,6 +200,7 @@ export function generateBulkPrintHTML(
           const ctx = targetCanvas.getContext('2d');
           if (!ctx) {
             holder.remove();
+            resolve();
             return;
           }
 
@@ -225,6 +209,7 @@ export function generateBulkPrintHTML(
             ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
             ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
             holder.remove();
+            resolve();
             return;
           }
 
@@ -234,6 +219,7 @@ export function generateBulkPrintHTML(
               ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
               ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
               holder.remove();
+              resolve();
             };
             if (sourceImage.complete) {
               drawImage();
@@ -244,20 +230,36 @@ export function generateBulkPrintHTML(
           }
 
           holder.remove();
+          resolve();
+          });
         };
         
         const canvases = document.querySelectorAll('canvas[id^="qrcode-"]');
+        const jobs = [];
         canvases.forEach(canvas => {
           const productId = canvas.dataset.productId;
           if (!productId) return;
           const product = products.find(p => p.id === productId);
           
           if (product) {
-            drawQrToCanvas(canvas, baseUrl + '/' + product.id, 220);
+            jobs.push(drawQrToCanvas(canvas, baseUrl + '/' + product.id, 220));
           }
         });
-        
-        setTimeout(() => { window.print(); }, 800);
+
+        const logoJobs = Array.from(document.querySelectorAll('.label-logo')).map((img) => {
+          return new Promise((resolve) => {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        });
+
+        Promise.all([...jobs, ...logoJobs]).finally(() => {
+          setTimeout(() => { window.print(); }, 300);
+        });
       <\/script>
     </body>
     </html>
@@ -271,6 +273,7 @@ export function generateBulkPrintHTML(
  */
 export function printSingleBarcode(product: Product): void {
   const productUrl = getProductScanUrl(product.id, window.location.origin);
+  const logoUrl = getQrLogoUrl(window.location.origin);
   const printWindow = window.open('', '', 'width=400,height=400');
   if (!printWindow) {
     alert('Please allow pop-ups to print QR codes');
@@ -308,15 +311,6 @@ export function printSingleBarcode(product: Product): void {
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
           gap: 8px;
         }
-        .title {
-          font-size: 9pt;
-          font-weight: bold;
-          color: #1f2937;
-          width: 100%;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
         .qrcode-container {
           display: flex;
           justify-content: center;
@@ -326,16 +320,10 @@ export function printSingleBarcode(product: Product): void {
           width: 1in;
           height: 1in;
         }
-        .product-id {
-          font-size: 10pt;
-          font-weight: bold;
-          color: #000;
-          letter-spacing: 0.5px;
-        }
-        .meta {
-          font-size: 7pt;
-          color: #6b7280;
-          font-family: monospace;
+        .logo {
+          width: 1.2in;
+          height: 0.25in;
+          object-fit: contain;
         }
         @media print {
           @page {
@@ -349,12 +337,10 @@ export function printSingleBarcode(product: Product): void {
     </head>
     <body>
       <div class="label">
-        <div class="title">${product.name}</div>
         <div class="qrcode-container">
           <canvas id="qrcode" width="240" height="240"></canvas>
         </div>
-        <div class="product-id">ID: ${product.id}</div>
-        <div class="meta">${product.sku} | ${product.price}</div>
+        <img id="logo" class="logo" src="${logoUrl}" alt="Great Work logo" />
       </div>
       <script>
         const product = ${JSON.stringify(product)};
@@ -377,14 +363,31 @@ export function printSingleBarcode(product: Product): void {
         });
         
         const canvas = document.getElementById('qrcode');
+        const logo = document.getElementById('logo');
         const sourceCanvas = holder.querySelector('canvas');
         const sourceImage = holder.querySelector('img');
+
+        const waitForLogo = new Promise((resolve) => {
+          if (!logo || logo.complete) {
+            resolve();
+            return;
+          }
+          logo.onload = () => resolve();
+          logo.onerror = () => resolve();
+        });
+
+        const printWhenReady = () => {
+          waitForLogo.finally(() => {
+            setTimeout(() => { window.print(); }, 300);
+          });
+        };
 
         if (sourceCanvas && canvas) {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+            printWhenReady();
           }
           holder.remove();
         } else if (sourceImage && canvas) {
@@ -393,6 +396,7 @@ export function printSingleBarcode(product: Product): void {
             const drawImage = () => {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+              printWhenReady();
               holder.remove();
             };
             if (sourceImage.complete) {
@@ -403,9 +407,8 @@ export function printSingleBarcode(product: Product): void {
           }
         } else {
           holder.remove();
+          printWhenReady();
         }
-        
-        setTimeout(() => { window.print(); }, 300);
       <\/script>
     </body>
     </html>
@@ -420,6 +423,7 @@ export function printSingleBarcode(product: Product): void {
  */
 export function printMultipleCopies(product: Product, quantity: number): void {
   const productUrl = getProductScanUrl(product.id, window.location.origin);
+  const logoUrl = getQrLogoUrl(window.location.origin);
   if (!quantity || quantity <= 0) {
     alert('Please enter a valid quantity');
     return;
@@ -474,15 +478,6 @@ export function printMultipleCopies(product: Product, quantity: number): void {
           padding: 0.1in;
           border: 1px solid #d1d5db;
         }
-        .product-name {
-          font-size: 8pt;
-          font-weight: bold;
-          color: #1f2937;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-        }
         .qrcode-container {
           display: flex;
           justify-content: center;
@@ -492,16 +487,10 @@ export function printMultipleCopies(product: Product, quantity: number): void {
           width: 1.15in;
           height: 1.15in;
         }
-        .product-id {
-          font-size: 9pt;
-          font-weight: bold;
-          color: #000;
-          letter-spacing: 0.3px;
-        }
-        .sku {
-          font-size: 6pt;
-          color: #6b7280;
-          font-family: 'Courier New', monospace;
+        .label-logo {
+          width: 1.35in;
+          height: 0.24in;
+          object-fit: contain;
         }
         .controls {
           position: fixed;
@@ -559,12 +548,10 @@ export function printMultipleCopies(product: Product, quantity: number): void {
   for (let i = 0; i < quantity; i++) {
     html += `
       <div class="qr-label">
-        <div class="product-name">${product.name}</div>
         <div class="qrcode-container">
           <canvas id="qrcode-${i}" width="260" height="260"></canvas>
         </div>
-        <div class="product-id">ID: ${product.id}</div>
-        <div class="sku">${product.sku} | ${product.price}</div>
+        <img class="label-logo" src="${logoUrl}" alt="Great Work logo" />
       </div>
     `;
   }
@@ -574,6 +561,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
       <script>
         const product = ${JSON.stringify(product)};
         const productUrl = ${JSON.stringify(productUrl)};
+        const logoUrl = ${JSON.stringify(logoUrl)};
         const qrStage = document.createElement('div');
         qrStage.style.position = 'absolute';
         qrStage.style.left = '-9999px';
@@ -581,6 +569,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
         document.body.appendChild(qrStage);
 
         const drawQrToCanvas = (targetCanvas, text, size) => {
+          return new Promise((resolve) => {
           const holder = document.createElement('div');
           qrStage.appendChild(holder);
 
@@ -596,6 +585,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
           const ctx = targetCanvas.getContext('2d');
           if (!ctx) {
             holder.remove();
+            resolve();
             return;
           }
 
@@ -604,6 +594,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
             ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
             ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
             holder.remove();
+            resolve();
             return;
           }
 
@@ -613,6 +604,7 @@ export function printMultipleCopies(product: Product, quantity: number): void {
               ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
               ctx.drawImage(sourceImage, 0, 0, targetCanvas.width, targetCanvas.height);
               holder.remove();
+              resolve();
             };
             if (sourceImage.complete) {
               drawImage();
@@ -623,13 +615,29 @@ export function printMultipleCopies(product: Product, quantity: number): void {
           }
 
           holder.remove();
+          resolve();
+          });
         };
-        
+
+        const jobs = [];
         document.querySelectorAll('canvas[id^="qrcode-"]').forEach(canvas => {
-          drawQrToCanvas(canvas, productUrl, 260);
+          jobs.push(drawQrToCanvas(canvas, productUrl, 260));
         });
-        
-        setTimeout(() => { window.print(); }, 800);
+
+        const logoJobs = Array.from(document.querySelectorAll('.label-logo')).map((img) => {
+          return new Promise((resolve) => {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        });
+
+        Promise.all([...jobs, ...logoJobs]).finally(() => {
+          setTimeout(() => { window.print(); }, 300);
+        });
       <\/script>
     </body>
     </html>
