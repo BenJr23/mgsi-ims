@@ -26,6 +26,9 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  buildings     Building[] @relation("BuildingCreatedBy")
+  areas         Area[]     @relation("AreaCreatedBy")
+  equipment     Equipment[] @relation("EquipmentCreatedBy")
 }
 
 model Session {
@@ -71,4 +74,79 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+}
+
+enum EquipmentType {
+  FURNITURE
+  ELECTRONICS
+  APPLIANCE
+  TOOL
+  OTHER
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  MAINTENANCE
+  RETIRED
+  LOST
+}
+
+model Building {
+  id           String      @id @default(uuid())
+  buildingName String
+  buildingCode String      @unique
+  createdById  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  address      String?
+  deletedAt    DateTime?
+  createdBy    User        @relation("BuildingCreatedBy", fields: [createdById], references: [id])
+  areas        Area[]
+  equipment    Equipment[]
+
+  @@index([createdById])
+  @@map("buildings")
+}
+
+model Area {
+  id          String     @id @default(uuid())
+  roomName    String
+  roomCode    String?
+  buildingId  String
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  building    Building   @relation(fields: [buildingId], references: [id])
+  createdBy   User       @relation("AreaCreatedBy", fields: [createdById], references: [id])
+  equipment   Equipment[]
+
+  @@index([buildingId])
+  @@index([createdById])
+  @@unique([buildingId, roomCode])
+  @@map("areas")
+}
+
+model Equipment {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  qrCode      String          @unique
+  type        EquipmentType
+  status      EquipmentStatus @default(AVAILABLE)
+  branchId    String
+  areaId      String?
+  price       Decimal         @db.Decimal(10, 2)
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+  branch      Building        @relation(fields: [branchId], references: [id])
+  area        Area?           @relation(fields: [areaId], references: [id])
+  createdBy   User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([branchId])
+  @@index([areaId])
+  @@index([createdById])
+  @@map("equipment")
 }
