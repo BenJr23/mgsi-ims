@@ -34,8 +34,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
-  buildings     Building[] @relation("BuildingCreatedBy")
-  areas         Area[]     @relation("AreaCreatedBy")
+  branches      Branch[] @relation("BranchCreatedBy")
+  areas         Area[]   @relation("AreaCreatedBy")
   equipment     Equipment[] @relation("EquipmentCreatedBy")
 }
 
@@ -99,39 +99,39 @@ enum EquipmentStatus {
   LOST
 }
 
-model Building {
+model Branch {
   id           String      @id @default(uuid())
-  buildingName String
-  buildingCode String      @unique
+  branchName   String
+  branchCode   String      @unique
   createdById  String
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   address      String?
   deletedAt    DateTime?
-  createdBy    User        @relation("BuildingCreatedBy", fields: [createdById], references: [id])
+  createdBy    User        @relation("BranchCreatedBy", fields: [createdById], references: [id])
   areas        Area[]
   equipment    Equipment[]
 
   @@index([createdById])
-  @@map("buildings")
+  @@map("branches")
 }
 
 model Area {
   id          String     @id @default(uuid())
   roomName    String
   roomCode    String?
-  buildingId  String
+  branchId    String
   createdById String
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
-  building    Building   @relation(fields: [buildingId], references: [id])
+  branch      Branch     @relation(fields: [branchId], references: [id])
   createdBy   User       @relation("AreaCreatedBy", fields: [createdById], references: [id])
   equipment   Equipment[]
 
-  @@index([buildingId])
+  @@index([branchId])
   @@index([createdById])
-  @@unique([buildingId, roomCode])
+  @@unique([branchId, roomCode])
   @@map("areas")
 }
 
@@ -149,7 +149,7 @@ model Equipment {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   deletedAt   DateTime?
-  branch      Building        @relation(fields: [branchId], references: [id])
+  branch      Branch          @relation(fields: [branchId], references: [id])
   area        Area?           @relation(fields: [areaId], references: [id])
   createdBy   User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
 

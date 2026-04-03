@@ -202,7 +202,7 @@ export function BranchesAreas() {
               Branches & Areas
             </h1>
             <p className="text-sm text-stone-500 mt-1">
-              Manage your buildings, rooms, and locations
+              Manage your branches, rooms, and locations
             </p>
           </div>
           <div className="flex items-center gap-3">
