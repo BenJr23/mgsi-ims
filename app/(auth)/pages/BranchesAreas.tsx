@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../components/TopBar';
+import { fetchBranchesAction, type BranchItem } from '@/app/_actions/branches';
 import {
   Building2Icon,
   DoorOpenIcon,
@@ -12,184 +13,88 @@ import {
   Trash2Icon } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-const METRICS = [
-{
-  name: 'Total Branches',
-  value: '4',
-  icon: Building2Icon,
-  color: 'text-stone-600',
-  bg: 'bg-stone-100'
-},
-{
-  name: 'Total Areas',
-  value: '18',
-  icon: DoorOpenIcon,
-  color: 'text-blue-600',
-  bg: 'bg-blue-100'
-},
-{
-  name: 'Total Equipment',
-  value: '2,847',
-  icon: PackageIcon,
-  color: 'text-emerald-600',
-  bg: 'bg-emerald-100'
-}];
-
-const BRANCHES = [
-{
-  id: 'b1',
-  name: 'Main Headquarters',
-  code: 'BLD-001',
-  address: '1234 Commerce Blvd, Portland, OR',
-  areaCount: 6,
-  equipCount: 1205,
-  areas: [
-  {
-    id: 'a1',
-    name: 'Reception',
-    code: 'RM-101',
-    equipCount: 12
-  },
-  {
-    id: 'a2',
-    name: 'Open Office',
-    code: 'RM-102',
-    equipCount: 89
-  },
-  {
-    id: 'a3',
-    name: 'Server Room',
-    code: 'RM-103',
-    equipCount: 34
-  },
-  {
-    id: 'a4',
-    name: 'Conference Room A',
-    code: 'RM-104',
-    equipCount: 18
-  },
-  {
-    id: 'a5',
-    name: 'Kitchen',
-    code: 'RM-105',
-    equipCount: 15
-  },
-  {
-    id: 'a6',
-    name: 'Storage',
-    code: 'RM-106',
-    equipCount: 45
-  }]
-
-},
-{
-  id: 'b2',
-  name: 'Downtown Branch',
-  code: 'BLD-002',
-  address: '567 Market St, Portland, OR',
-  areaCount: 4,
-  equipCount: 892,
-  areas: [
-  {
-    id: 'a7',
-    name: 'Sales Floor',
-    code: 'RM-201',
-    equipCount: 67
-  },
-  {
-    id: 'a8',
-    name: 'Back Office',
-    code: 'RM-202',
-    equipCount: 23
-  },
-  {
-    id: 'a9',
-    name: 'Break Room',
-    code: 'RM-203',
-    equipCount: 8
-  },
-  {
-    id: 'a10',
-    name: 'Warehouse',
-    code: 'RM-204',
-    equipCount: 156
-  }]
-
-},
-{
-  id: 'b3',
-  name: 'East Side Warehouse',
-  code: 'BLD-003',
-  address: '890 Industrial Ave, Portland, OR',
-  areaCount: 5,
-  equipCount: 534,
-  areas: [
-  {
-    id: 'a11',
-    name: 'Loading Dock',
-    code: 'RM-301',
-    equipCount: 12
-  },
-  {
-    id: 'a12',
-    name: 'Storage Zone A',
-    code: 'RM-302',
-    equipCount: 234
-  },
-  {
-    id: 'a13',
-    name: 'Storage Zone B',
-    code: 'RM-303',
-    equipCount: 189
-  },
-  {
-    id: 'a14',
-    name: 'Packing Station',
-    code: 'RM-304',
-    equipCount: 45
-  },
-  {
-    id: 'a15',
-    name: 'Office',
-    code: 'RM-305',
-    equipCount: 8
-  }]
-
-},
-{
-  id: 'b4',
-  name: 'South Distribution Center',
-  code: 'BLD-004',
-  address: '2100 Logistics Pkwy, Portland, OR',
-  areaCount: 3,
-  equipCount: 216,
-  areas: [
-  {
-    id: 'a16',
-    name: 'Receiving',
-    code: 'RM-401',
-    equipCount: 34
-  },
-  {
-    id: 'a17',
-    name: 'Sorting',
-    code: 'RM-402',
-    equipCount: 112
-  },
-  {
-    id: 'a18',
-    name: 'Dispatch',
-    code: 'RM-403',
-    equipCount: 70
-  }]
-
-}];
-
 export function BranchesAreas() {
-  const [expandedBranch, setExpandedBranch] = useState<string | null>('b1');
+  const [branches, setBranches] = useState<BranchItem[]>([]);
+  const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadBranches() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const result = await fetchBranchesAction();
+
+        if (!isActive) {
+          return;
+        }
+
+        if (!result.ok) {
+          setError(result.message);
+          setBranches([]);
+          return;
+        }
+
+        setBranches(result.branches);
+        setExpandedBranch(result.branches[0]?.id ?? null);
+      } catch {
+        if (isActive) {
+          setError('Unable to load branches and areas right now.');
+          setBranches([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadBranches();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const metrics = useMemo(() => {
+    const totalAreas = branches.reduce((sum, branch) => sum + (branch.areas?.length ?? 0), 0);
+    const totalEquipment = branches.reduce((sum, branch) => sum + (branch.equipCount ?? 0), 0);
+
+    return [
+      {
+        name: 'Total Branches',
+        value: String(branches.length),
+        icon: Building2Icon,
+        color: 'text-stone-600',
+        bg: 'bg-stone-100',
+      },
+      {
+        name: 'Total Areas',
+        value: String(totalAreas),
+        icon: DoorOpenIcon,
+        color: 'text-blue-600',
+        bg: 'bg-blue-100',
+      },
+      {
+        name: 'Total Equipment',
+        value: totalEquipment.toLocaleString(),
+        icon: PackageIcon,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-100',
+      },
+    ];
+  }, [branches]);
+
   const toggleBranch = (id: string) => {
     setExpandedBranch(expandedBranch === id ? null : id);
   };
+
+  const getAreaCount = (branch: BranchItem) => branch.areaCount ?? branch.areas?.length ?? 0;
+
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar />
@@ -223,7 +128,7 @@ export function BranchesAreas() {
 
         {/* Metrics Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {METRICS.map((metric, i) => {
+          {metrics.map((metric, i) => {
             const Icon = metric.icon;
             return (
               <motion.div
@@ -259,8 +164,27 @@ export function BranchesAreas() {
 
         {/* Branches List */}
         <div className="space-y-4">
-          {BRANCHES.map((branch, i) => {
+          {isLoading ? (
+            <div className="rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-500">
+              Loading branches and areas...
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          {!isLoading && !error && branches.length === 0 ? (
+            <div className="rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-500">
+              No branches returned from the API yet.
+            </div>
+          ) : null}
+
+          {branches.map((branch, i) => {
             const isExpanded = expandedBranch === branch.id;
+            const areas = branch.areas ?? [];
             return (
               <motion.div
                 key={branch.id}
@@ -295,19 +219,21 @@ export function BranchesAreas() {
                           {branch.code}
                         </span>
                       </div>
-                      <p className="text-sm text-stone-500">{branch.address}</p>
+                      <p className="text-sm text-stone-500">
+                        {branch.address ?? 'No address'}
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6 ml-14 sm:ml-0">
                     <div className="flex items-center gap-4 text-sm text-stone-500">
                       <span className="flex items-center gap-1.5">
-                        <DoorOpenIcon className="w-4 h-4" /> {branch.areaCount}{' '}
+                        <DoorOpenIcon className="w-4 h-4" /> {getAreaCount(branch)}{' '}
                         areas
                       </span>
                       <span className="flex items-center gap-1.5">
                         <PackageIcon className="w-4 h-4" />{' '}
-                        {branch.equipCount.toLocaleString()} equip
+                        {(branch.equipCount ?? 0).toLocaleString()} equip
                       </span>
                     </div>
                     <div className="text-stone-400">
@@ -360,19 +286,19 @@ export function BranchesAreas() {
                                 scope="col"
                                 className="px-4 py-2.5 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                                 
-                                  Room Name
+                                  Area Name
                                 </th>
                                 <th
                                 scope="col"
                                 className="px-4 py-2.5 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                                 
-                                  Room Code
+                                  Area Code
                                 </th>
                                 <th
                                 scope="col"
                                 className="px-4 py-2.5 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                                 
-                                  Equipment Count
+                                  Capacity
                                 </th>
                                 <th
                                 scope="col"
@@ -383,13 +309,13 @@ export function BranchesAreas() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-stone-100">
-                              {branch.areas.map((area) => {
-                              const maxEquip = 300; // arbitrary max for progress bar
+                              {areas.map((area) => {
+                              const maxEquip = 300;
                               const percentage = Math.min(
                                 100,
                                 Math.max(
                                   0,
-                                  area.equipCount / maxEquip * 100
+                                  (area.equipCount ?? 0) / maxEquip * 100
                                 )
                               );
                               return (
@@ -406,7 +332,7 @@ export function BranchesAreas() {
                                     <td className="px-4 py-3 whitespace-nowrap">
                                       <div className="flex items-center gap-3">
                                         <span className="text-sm text-stone-600 w-8">
-                                          {area.equipCount}
+                                          {area.equipCount ?? 0}
                                         </span>
                                         <div className="w-24 h-1.5 bg-stone-100 rounded-full overflow-hidden">
                                           <div
