@@ -27,23 +27,12 @@ type ExternalLoginError = {
   error?: string;
 };
 
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "message" in error) {
-    const maybeMessage = (error as { message?: unknown }).message;
-    if (typeof maybeMessage === "string" && maybeMessage.length > 0) {
-      return maybeMessage;
-    }
-  }
-  return fallback;
-}
-
 export async function signInWithEmailAction(input: {
   email: string;
   password: string;
 }): Promise<AuthResult> {
   const invalidCredentialsMessage = "Invalid email or password";
   const email = input.email.trim().toLowerCase();
-  const traceId = `signin_action_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const credentialProviderId = "credential";
 
   try {
@@ -63,14 +52,6 @@ export async function signInWithEmailAction(input: {
 
     const routeData = (await routeResponse.json()) as ExternalLoginSuccess | ExternalLoginError;
 
-    console.log("[Auth Action] External fallback response", {
-      traceId,
-      email,
-      status: routeResponse.status,
-      ok: routeResponse.ok,
-      success: routeData.success,
-    });
-
     if (!routeResponse.ok || !routeData.success) {
       return {
         ok: false,
@@ -86,11 +67,6 @@ export async function signInWithEmailAction(input: {
       fetchedUser.role === null ||
       !["ADMIN", "MANAGER", "USER"].includes(fetchedUser.role)
     ) {
-      console.warn("[Auth Action] Blocked provisioning due to invalid role", {
-        traceId,
-        email: fetchedUser.email,
-        role: fetchedUser.role,
-      });
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -135,11 +111,6 @@ export async function signInWithEmailAction(input: {
             password: passwordHash,
           },
         });
-
-        console.log("[Auth Action] Local user and credential account created", {
-          traceId,
-          email: createdUser.email,
-        });
       } else {
         await prisma.user.update({
           where: { id: localUser.id },
@@ -161,10 +132,6 @@ export async function signInWithEmailAction(input: {
               password: passwordHash,
             },
           });
-          console.log("[Auth Action] Missing credential account created", {
-            traceId,
-            email: localUser.email,
-          });
         } else {
           let hasSamePassword = false;
 
@@ -184,19 +151,10 @@ export async function signInWithEmailAction(input: {
               where: { id: credentialAccount.id },
               data: { password: passwordHash },
             });
-            console.log("[Auth Action] Credential password synchronized", {
-              traceId,
-              email: localUser.email,
-            });
           }
         }
       }
-    } catch (syncError) {
-      console.warn("[Auth Action] Could not synchronize local auth records", {
-        traceId,
-        email: fetchedUser.email,
-        reason: getErrorMessage(syncError, "Unknown sync error"),
-      });
+    } catch {
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -211,19 +169,8 @@ export async function signInWithEmailAction(input: {
       },
     });
 
-    console.log("[Auth Action] Fallback flow completed with session created", {
-      traceId,
-      email: fetchedUser.email,
-    });
-
     return { ok: true, message: "Logged in successfully." };
-  } catch (error) {
-    console.error("[Auth Action] Fallback flow failed", {
-      traceId,
-      email,
-      reason: getErrorMessage(error, "Unable to log in."),
-    });
-
+  } catch {
     return {
       ok: false,
       message: invalidCredentialsMessage,
