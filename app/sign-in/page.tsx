@@ -1,6 +1,5 @@
 "use client";
 
-import { signInWithEmailAction } from "@/app/_actions/auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
@@ -41,14 +40,28 @@ export default function LogInPage() {
     setIsLoading(true);
 
     try {
-      const result = await signInWithEmailAction({
-        email: formData.email.trim(),
-        password: formData.password,
+      const response = await fetch('/api/user/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+        }),
       });
 
-      if (!result.ok) {
-        setServerError(result.message);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setServerError(data.error || 'Authentication failed');
         return;
+      }
+
+      // Store the token from external system
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
       }
 
       const nextPath = searchParams.get("next") || "/";
@@ -62,12 +75,12 @@ export default function LogInPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 px-4 py-10 text-slate-900">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(59,130,246,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(20,184,166,0.18),transparent_28%),radial-gradient(circle_at_60%_90%,rgba(245,158,11,0.2),transparent_32%)]" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-4 py-10 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(92,11,19,0.12),transparent_34%),radial-gradient(circle_at_80%_12%,rgba(0,0,0,0.08),transparent_28%),radial-gradient(circle_at_60%_90%,rgba(92,11,19,0.1),transparent_32%)]" />
 
-      <section className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/90 p-8 shadow-[0_20px_50px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm sm:p-10">
+      <section className="relative z-10 w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.28)] backdrop-blur-sm sm:p-10">
         <div className="mb-7">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-700">MGSI IMS</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#5c0b13]">MGSI IMS</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Welcome back</h1>
           <p className="mt-2 text-sm text-slate-600">Log in to continue managing your inventory workspace.</p>
         </div>
@@ -84,7 +97,7 @@ export default function LogInPage() {
               placeholder="you@example.com"
               value={formData.email}
               onChange={(event) => setFormData((prev) => ({ ...prev, email: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#5c0b13] focus:ring-2 focus:ring-[#5c0b13]/10"
               required
             />
             {submitted && formData.email.trim().length === 0 ? (
@@ -103,7 +116,7 @@ export default function LogInPage() {
               placeholder="Your password"
               value={formData.password}
               onChange={(event) => setFormData((prev) => ({ ...prev, password: event.target.value }))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#5c0b13] focus:ring-2 focus:ring-[#5c0b13]/10"
               required
             />
             {submitted && formData.password.length === 0 ? (
@@ -115,7 +128,7 @@ export default function LogInPage() {
 
           <button
             type="submit"
-            className="mt-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="mt-2 w-full rounded-xl bg-black px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#5c0b13] focus:outline-none focus:ring-2 focus:ring-[#5c0b13]/20 disabled:cursor-not-allowed disabled:bg-slate-300"
             disabled={isLoading || (!canSubmit && submitted)}
           >
             {isLoading ? "Signing in..." : "Log In"}
@@ -124,7 +137,7 @@ export default function LogInPage() {
 
         <p className="mt-6 text-center text-sm text-slate-600">
           New here?{" "}
-          <Link href="/sign-up" className="font-semibold text-blue-700 hover:text-blue-800">
+          <Link href="/sign-up" className="font-semibold text-[#5c0b13] hover:text-black">
             Create an account
           </Link>
         </p>
