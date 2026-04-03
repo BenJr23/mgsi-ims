@@ -27,6 +27,7 @@ function mapExternalRoleToInternal(externalRole: ExternalUser['role']): 'ADMIN' 
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
+  const invalidCredentialsMessage = 'Invalid email or password'
   const traceId = `login_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const externalApiUrl = process.env.EXTERNAL_AUTH_API_URL
   const bmsSecretKey = process.env.BMS_SECRET_KEY
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (scheme !== 'Bearer' || token !== imsSecretKey) {
       console.warn('[Login API] Unauthorized access attempt - invalid IMS_SECRET_KEY')
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: invalidCredentialsMessage },
         { status: 401 }
       )
     }
@@ -65,14 +66,14 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (!externalApiUrl) {
     return NextResponse.json(
-      { success: false, error: 'EXTERNAL_AUTH_API_URL is not configured' },
+      { success: false, error: invalidCredentialsMessage },
       { status: 500 }
     )
   }
 
   if (!bmsSecretKey) {
     return NextResponse.json(
-      { success: false, error: 'BMS_SECRET_KEY is not configured' },
+      { success: false, error: invalidCredentialsMessage },
       { status: 500 }
     )
   }
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     body = (await request.json()) as LoginBody
   } catch {
     console.warn('[Login API] Invalid JSON payload received', { traceId })
-    return NextResponse.json({ success: false, error: 'Invalid JSON payload' }, { status: 400 })
+    return NextResponse.json({ success: false, error: invalidCredentialsMessage }, { status: 400 })
   }
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       hasPassword: Boolean(password),
     })
     return NextResponse.json(
-      { success: false, error: 'Email and password are required' },
+      { success: false, error: invalidCredentialsMessage },
       { status: 400 }
     )
   }
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         status: externalResponse.status,
       })
       return NextResponse.json(
-        { success: false, error: externalData.error || 'Authentication failed' },
+        { success: false, error: invalidCredentialsMessage },
         { status: externalResponse.status }
       )
     }
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (externalUser.role === 'CLIENT') {
       console.warn('[Login API] Rejecting CLIENT role', { traceId, email })
       return NextResponse.json(
-        { success: false, error: 'Invalid login' },
+        { success: false, error: invalidCredentialsMessage },
         { status: 401 }
       )
     }
@@ -200,7 +201,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   } catch (error) {
     console.error('[Login API] Error', { traceId, error })
     return NextResponse.json(
-      { success: false, error: 'Authentication service unavailable' },
+      { success: false, error: invalidCredentialsMessage },
       { status: 503 }
     )
   }
