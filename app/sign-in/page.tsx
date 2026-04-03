@@ -1,6 +1,5 @@
 "use client";
 
-import { signInWithEmailAction } from "@/app/_actions/auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
@@ -41,20 +40,36 @@ export default function LogInPage() {
     setIsLoading(true);
 
     try {
-      const result = await signInWithEmailAction({
-        email: formData.email.trim(),
-        password: formData.password,
+      const response = await fetch("/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+        }),
       });
 
-      if (!result.ok) {
-        setServerError(result.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setServerError(data.error || "Authentication failed");
         return;
+      }
+
+      console.log("[Sign In] Login successful:", data);
+
+      // Store token if provided
+      if (data.token) {
+        localStorage.setItem("authToken", data.token);
       }
 
       const nextPath = searchParams.get("next") || "/";
       router.replace(nextPath);
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error("[Sign In] Error:", error);
       setServerError("Unable to sign in right now. Please try again.");
     } finally {
       setIsLoading(false);
