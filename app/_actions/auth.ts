@@ -11,22 +11,39 @@ type AuthResult = {
   message: string;
 };
 
+type ExternalUser = {
+  id: string;
+  email: string;
+  name: string;
+  phoneNumber: string | null;
+  role: "CLIENT" | "ADMIN" | "SUPERADMIN" | "STAFF";
+  companyId: string | null;
+  passwordVerified: boolean;
+};
+
 type ExternalLoginSuccess = {
   success: true;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    phoneNumber: string | null;
-    role: "ADMIN" | "MANAGER" | "USER" | "CLIENT" | null;
-    emailVerified: boolean;
-  };
+  user: ExternalUser;
+  token?: string;
+  tokenType?: string;
+  expiresAt?: string;
 };
 
 type ExternalLoginError = {
   success: false;
   error?: string;
 };
+
+function mapExternalRoleToInternal(externalRole: ExternalUser["role"]): "ADMIN" | "MANAGER" | "USER" | null {
+  const roleMap: Record<ExternalUser["role"], "ADMIN" | "MANAGER" | "USER" | null> = {
+    CLIENT: null,
+    SUPERADMIN: "ADMIN",
+    ADMIN: "MANAGER",
+    STAFF: "USER",
+  };
+
+  return roleMap[externalRole];
+}
 
 export async function signInWithEmailAction(input: {
   email: string;
@@ -38,11 +55,21 @@ export async function signInWithEmailAction(input: {
 
   try {
     // Always validate credentials against external API first.
-    const appUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-    const routeResponse = await fetch(`${appUrl}/api/users/login`, {
+    const externalApiUrl = "http://localhost:3001/api/users/integrated-login";
+    const bmsSecretKey = process.env.BMS_SECRET_KEY;
+
+    if (!bmsSecretKey) {
+      return {
+        ok: false,
+        message: invalidCredentialsMessage,
+      };
+    }
+
+    const externalResponse = await fetch(externalApiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${bmsSecretKey}`,
       },
       body: JSON.stringify({
         email,
@@ -51,20 +78,36 @@ export async function signInWithEmailAction(input: {
       cache: "no-store",
     });
 
-    const routeData = (await routeResponse.json()) as ExternalLoginSuccess | ExternalLoginError;
+    const externalData = (await externalResponse.json()) as ExternalLoginSuccess | ExternalLoginError;
 
-    if (!routeResponse.ok || !routeData.success) {
+    if (!externalResponse.ok || !externalData.success) {
       return {
         ok: false,
         message: invalidCredentialsMessage,
       };
     }
 
-    const fetchedUser = routeData.user;
+    const externalUser = externalData.user;
+    const mappedRole = mapExternalRoleToInternal(externalUser.role);
+
+    if (mappedRole === null) {
+      return {
+        ok: false,
+        message: invalidCredentialsMessage,
+      };
+    }
+
+    const fetchedUser = {
+      id: externalUser.id,
+      email: externalUser.email,
+      name: externalUser.name,
+      phoneNumber: externalUser.phoneNumber,
+      role: mappedRole,
+      emailVerified: externalUser.passwordVerified,
+    };
 
     // Defensive guard: never provision local accounts for CLIENT/invalid roles.
     if (
-      fetchedUser.role === "CLIENT" ||
       fetchedUser.role === null ||
       !["ADMIN", "MANAGER", "USER"].includes(fetchedUser.role)
     ) {
