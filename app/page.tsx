@@ -9,6 +9,8 @@ import { Suppliers } from './(auth)/pages/Suppliers';
 import { Reports } from './(auth)/pages/Reports';
 import { Settings } from './(auth)/pages/Settings';
 import { StockAdjust } from './(auth)/pages/StockAdjust';
+import { BranchesAreas } from './(auth)/pages/BranchesAreas';
+import { UserManagement } from './(auth)/pages/UserManagement';
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState('Dashboard');
@@ -29,6 +31,10 @@ export default function Page() {
         return <Reports />;
       case 'Settings':
         return <Settings />;
+      case 'Branches & Areas':
+        return <BranchesAreas />;
+      case 'User Management':
+        return <UserManagement />;
       default:
         return <Dashboard />;
     }
