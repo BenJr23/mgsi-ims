@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { signInWithEmailAction } from "@/app/_actions/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
@@ -40,29 +40,14 @@ export default function LogInPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      const result = await signInWithEmailAction({
+        email: formData.email.trim(),
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setServerError(data.error || "Authentication failed");
+      if (!result.ok) {
+        setServerError(result.message);
         return;
-      }
-
-      console.log("[Sign In] Login successful:", data);
-
-      // Store token if provided
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
       }
 
       const nextPath = searchParams.get("next") || "/";
@@ -136,13 +121,6 @@ export default function LogInPage() {
             {isLoading ? "Signing in..." : "Log In"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-slate-600">
-          New here?{" "}
-          <Link href="/sign-up" className="font-semibold text-blue-700 hover:text-blue-800">
-            Create an account
-          </Link>
-        </p>
       </section>
     </main>
   );
