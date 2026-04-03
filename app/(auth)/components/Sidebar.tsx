@@ -136,18 +136,6 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         })}
       </nav>
 
-      {/* User Info */}
-      <div className="p-4 border-t border-slate-800">
-        <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-800 transition-colors text-left">
-          <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-600">
-            <span className="text-sm font-medium text-white">JD</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Jane Doe</p>
-            <p className="text-xs text-slate-400 truncate">Store Manager</p>
-          </div>
-        </button>
-      </div>
     </aside>);
 
 }

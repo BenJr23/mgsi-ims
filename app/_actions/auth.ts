@@ -1,6 +1,7 @@
 "use server";
 
 import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -175,5 +176,17 @@ export async function signInWithEmailAction(input: {
       ok: false,
       message: invalidCredentialsMessage,
     };
+  }
+}
+
+export async function signOutAction(): Promise<AuthResult> {
+  try {
+    await auth.api.signOut({
+      headers: await headers(),
+    });
+
+    return { ok: true, message: "Signed out successfully." };
+  } catch {
+    return { ok: false, message: "Unable to sign out." };
   }
 }
