@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { AddModelModal } from '../components/modals/AddModelModal';
+import {
+  createEquipmentModelAction,
+  fetchEquipmentModelsAction,
+  type EquipmentModelListItem,
+} from '@/app/_actions/equipmentmodel';
 import {
   BoxIcon,
   SearchIcon,
@@ -20,17 +25,6 @@ type EquipmentType =
 'APPLIANCE' |
 'TOOL' |
 'OTHER';
-interface EquipmentModel {
-  id: string;
-  name: string;
-  description: string;
-  sku: string | null;
-  type: EquipmentType;
-  price: string | null;
-  createdBy: string;
-  createdAt: string;
-  unitCount: number;
-}
 const TYPE_TABS: {
   label: string;
   value: EquipmentType | 'ALL';
@@ -58,148 +52,6 @@ const TYPE_TABS: {
 {
   label: 'Other',
   value: 'OTHER'
-}];
-
-const MODELS: EquipmentModel[] = [
-{
-  id: '1',
-  name: 'Standing Desk Pro',
-  description: 'Height-adjustable standing desk with memory presets',
-  sku: 'MOD-1001',
-  type: 'FURNITURE',
-  price: '$549.00',
-  createdBy: 'Jane Doe',
-  createdAt: 'Jan 10, 2026',
-  unitCount: 48
-},
-{
-  id: '2',
-  name: 'Dell UltraSharp 27"',
-  description: '4K USB-C monitor with built-in KVM',
-  sku: 'MOD-1002',
-  type: 'ELECTRONICS',
-  price: '$429.99',
-  createdBy: 'Alex Rivera',
-  createdAt: 'Jan 15, 2026',
-  unitCount: 124
-},
-{
-  id: '3',
-  name: 'Ergonomic Office Chair',
-  description: 'Mesh back with lumbar support and adjustable arms',
-  sku: 'MOD-1003',
-  type: 'FURNITURE',
-  price: '$389.00',
-  createdBy: 'Jane Doe',
-  createdAt: 'Jan 22, 2026',
-  unitCount: 67
-},
-{
-  id: '4',
-  name: 'MacBook Pro 16"',
-  description: 'M3 Pro chip, 18GB RAM, 512GB SSD',
-  sku: 'MOD-1004',
-  type: 'ELECTRONICS',
-  price: '$2,499.00',
-  createdBy: 'Alex Rivera',
-  createdAt: 'Feb 1, 2026',
-  unitCount: 35
-},
-{
-  id: '5',
-  name: 'Commercial Coffee Machine',
-  description: 'Automatic espresso machine with grinder',
-  sku: 'MOD-1005',
-  type: 'APPLIANCE',
-  price: '$1,299.00',
-  createdBy: 'Maria Santos',
-  createdAt: 'Feb 8, 2026',
-  unitCount: 6
-},
-{
-  id: '6',
-  name: 'Cordless Drill Kit',
-  description: '20V MAX with 2 batteries and charger',
-  sku: 'MOD-1006',
-  type: 'TOOL',
-  price: '$179.99',
-  createdBy: 'Robert Chang',
-  createdAt: 'Feb 14, 2026',
-  unitCount: 18
-},
-{
-  id: '7',
-  name: 'Whiteboard 6x4ft',
-  description: 'Magnetic dry-erase whiteboard with aluminum frame',
-  sku: 'MOD-1007',
-  type: 'OTHER',
-  price: '$89.99',
-  createdBy: 'Jane Doe',
-  createdAt: 'Feb 20, 2026',
-  unitCount: 22
-},
-{
-  id: '8',
-  name: 'Network Switch 48-Port',
-  description: 'Managed PoE+ Gigabit Ethernet switch',
-  sku: 'MOD-1008',
-  type: 'ELECTRONICS',
-  price: '$649.00',
-  createdBy: 'Alex Rivera',
-  createdAt: 'Mar 1, 2026',
-  unitCount: 12
-},
-{
-  id: '9',
-  name: 'Mini Fridge',
-  description: 'Compact 4.5 cu ft refrigerator for break rooms',
-  sku: 'MOD-1009',
-  type: 'APPLIANCE',
-  price: '$219.00',
-  createdBy: 'Maria Santos',
-  createdAt: 'Mar 5, 2026',
-  unitCount: 8
-},
-{
-  id: '10',
-  name: 'Safety Toolkit',
-  description: 'Complete warehouse safety kit with PPE',
-  sku: null,
-  type: 'TOOL',
-  price: '$124.50',
-  createdBy: 'Robert Chang',
-  createdAt: 'Mar 12, 2026',
-  unitCount: 30
-}];
-
-const METRICS = [
-{
-  name: 'Total Models',
-  value: '10',
-  icon: BoxIcon,
-  color: 'text-stone-600',
-  bg: 'bg-stone-100'
-},
-{
-  name: 'Furniture',
-  value: '3',
-  icon: ArmchairIcon,
-  color: 'text-blue-600',
-  bg: 'bg-blue-100'
-},
-{
-  name: 'Electronics',
-  value: '3',
-  icon: CpuIcon,
-  color: 'text-indigo-600',
-  bg: 'bg-indigo-100'
-},
-{
-  name: 'Total Units',
-  value: '370',
-  icon: BoxIcon,
-  color: 'text-emerald-600',
-  bg: 'bg-emerald-100'
 }];
 
 function getTypeIcon(type: EquipmentType) {
@@ -231,27 +83,121 @@ function getTypeBadge(type: EquipmentType) {
   }
 }
 export function EquipmentModels() {
+  const [models, setModels] = useState<EquipmentModelListItem[]>([]);
   const [activeTab, setActiveTab] = useState<EquipmentType | 'ALL'>('ALL');
   const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
+  const [isSubmittingModel, setIsSubmittingModel] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAddModelSubmit = (data: {
+  const loadEquipmentModels = async () => {
+    setIsLoading(true);
+
+    try {
+      const result = await fetchEquipmentModelsAction();
+
+      if (!result.ok) {
+        setError(result.message);
+        setModels([]);
+        return;
+      }
+
+      setModels(result.models);
+    } catch {
+      setError('Unable to load equipment models right now.');
+      setModels([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadEquipmentModels();
+  }, []);
+
+  const handleAddModelSubmit = async (data: {
     name: string;
     description: string;
     sku: string;
     type: EquipmentType;
     price: string;
   }) => {
-    console.log('[Equipment Models] Add model payload', data);
-    setIsAddModelModalOpen(false);
+    setIsSubmittingModel(true);
+    setError(null);
+
+    try {
+      const result = await createEquipmentModelAction(data);
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      await loadEquipmentModels();
+      setIsAddModelModalOpen(false);
+    } catch {
+      setError('Unable to create equipment model right now. Please try again.');
+    } finally {
+      setIsSubmittingModel(false);
+    }
   };
 
+  const metrics = useMemo(() => {
+    const furnitureCount = models.filter((model) => model.type === 'FURNITURE').length;
+    const electronicsCount = models.filter((model) => model.type === 'ELECTRONICS').length;
+    const totalUnits = models.reduce((sum, model) => sum + model.unitCount, 0);
+
+    return [
+      {
+        name: 'Total Models',
+        value: String(models.length),
+        icon: BoxIcon,
+        color: 'text-stone-600',
+        bg: 'bg-stone-100',
+      },
+      {
+        name: 'Furniture',
+        value: String(furnitureCount),
+        icon: ArmchairIcon,
+        color: 'text-blue-600',
+        bg: 'bg-blue-100',
+      },
+      {
+        name: 'Electronics',
+        value: String(electronicsCount),
+        icon: CpuIcon,
+        color: 'text-indigo-600',
+        bg: 'bg-indigo-100',
+      },
+      {
+        name: 'Total Units',
+        value: totalUnits.toLocaleString(),
+        icon: BoxIcon,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-100',
+      },
+    ];
+  }, [models]);
+
   const filtered =
-  activeTab === 'ALL' ? MODELS : MODELS.filter((m) => m.type === activeTab);
+  activeTab === 'ALL' ? models : models.filter((m) => m.type === activeTab);
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar />
 
       <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+        {error ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-500">
+            Loading equipment models...
+          </div>
+        ) : null}
+
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -263,8 +209,9 @@ export function EquipmentModels() {
             </p>
           </div>
           <button
+            disabled={isSubmittingModel}
             onClick={() => setIsAddModelModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
           >
             <PlusIcon className="w-4 h-4" aria-hidden="true" />
             Add Model
@@ -273,7 +220,7 @@ export function EquipmentModels() {
 
         {/* Metrics Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {METRICS.map((metric, i) => {
+          {metrics.map((metric, i) => {
             const Icon = metric.icon;
             return (
               <motion.div

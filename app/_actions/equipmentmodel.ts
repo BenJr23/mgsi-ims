@@ -22,6 +22,28 @@ type CreateEquipmentModelResult =
 			message: string;
 		};
 
+export type EquipmentModelListItem = {
+	id: string;
+	name: string;
+	description: string;
+	sku: string | null;
+	type: EquipmentType;
+	price: string | null;
+	createdBy: string;
+	createdAt: string;
+	unitCount: number;
+};
+
+type FetchEquipmentModelsResult =
+	| {
+			ok: true;
+			models: EquipmentModelListItem[];
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 const VALID_EQUIPMENT_TYPES: EquipmentType[] = [
 	"FURNITURE",
 	"ELECTRONICS",
@@ -29,6 +51,79 @@ const VALID_EQUIPMENT_TYPES: EquipmentType[] = [
 	"TOOL",
 	"OTHER",
 ];
+
+export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModelsResult> {
+	const traceId = `equipment_model_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		const models = await prisma.equipmentModel.findMany({
+			where: {
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				name: true,
+				description: true,
+				sku: true,
+				type: true,
+				price: true,
+				createdAt: true,
+				createdBy: {
+					select: {
+						name: true,
+					},
+				},
+				equipment: {
+					where: {
+						deletedAt: null,
+					},
+					select: {
+						id: true,
+					},
+				},
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		});
+
+		const formattedModels: EquipmentModelListItem[] = models.map((model) => ({
+			id: model.id,
+			name: model.name,
+			description: model.description ?? "",
+			sku: model.sku,
+			type: model.type,
+			price: model.price ? model.price.toString() : null,
+			createdBy: model.createdBy.name,
+			createdAt: new Intl.DateTimeFormat("en-US", {
+				month: "short",
+				day: "2-digit",
+				year: "numeric",
+			}).format(model.createdAt),
+			unitCount: model.equipment.length,
+		}));
+
+		console.log("[EquipmentModel Action] Fetched models", {
+			traceId,
+			count: formattedModels.length,
+		});
+
+		return {
+			ok: true,
+			models: formattedModels,
+		};
+	} catch (error) {
+		console.error("[EquipmentModel Action] Fetch failed", {
+			traceId,
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+
+		return {
+			ok: false,
+			message: "Unable to fetch equipment models right now.",
+		};
+	}
+}
 
 export async function createEquipmentModelAction(input: {
 	name: string;

@@ -16,7 +16,7 @@ interface AddModelModalProps {
     sku: string;
     type: EquipmentType;
     price: string;
-  }) => void;
+  }) => Promise<void> | void;
 }
 const EQUIPMENT_TYPES: {
   label: string;
@@ -51,15 +51,13 @@ export function AddModelModal({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    onSubmit({
+    void onSubmit({
       name: formData.get('name') as string,
       description: formData.get('description') as string,
       sku: formData.get('sku') as string,
       type: formData.get('type') as EquipmentType,
       price: formData.get('price') as string
     });
-    e.currentTarget.reset();
-    onClose();
   };
   return (
     <AnimatePresence>
