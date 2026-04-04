@@ -19,9 +19,33 @@ type CreateEquipmentResult =
 			message: string;
 		};
 
+export type EquipmentListItem = {
+	id: string;
+	qrCode: string;
+	serialNumber: string | null;
+	modelName: string;
+	modelType: string;
+	status: EquipmentStatus;
+	areaName: string;
+	branchName: string;
+	createdBy: string;
+	createdAt: string;
+};
+
+type FetchEquipmentResult =
+	| {
+			ok: true;
+			equipment: EquipmentListItem[];
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 const EQUIPMENT_CACHE_KEY = "equipment:all:v1";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
+const EQUIPMENT_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
 	result: T;
@@ -76,6 +100,154 @@ async function invalidateEquipmentCaches(): Promise<void> {
 				error: error instanceof Error ? error.message : "Unknown error",
 			});
 		}
+	}
+}
+
+export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
+	const traceId = `equipment_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+
+	try {
+		if (redisUrl && redisToken) {
+			try {
+				const cacheResponse = await runRedisCommand<string | null>(redisUrl, redisToken, [
+					"GET",
+					EQUIPMENT_CACHE_KEY,
+				]);
+
+				if (cacheResponse.result) {
+					const cachedEquipment = JSON.parse(cacheResponse.result) as EquipmentListItem[];
+					console.log("[Equipment Action] Cache hit", {
+						traceId,
+						key: EQUIPMENT_CACHE_KEY,
+						count: cachedEquipment.length,
+					});
+
+					return {
+						ok: true,
+						equipment: cachedEquipment,
+					};
+				}
+
+				console.log("[Equipment Action] Cache miss", {
+					traceId,
+					key: EQUIPMENT_CACHE_KEY,
+				});
+			} catch (cacheReadError) {
+				console.warn("[Equipment Action] Cache read failed", {
+					traceId,
+					error:
+						cacheReadError instanceof Error ? cacheReadError.message : "Unknown cache read error",
+				});
+			}
+		}
+
+		const equipment = await prisma.equipment.findMany({
+			where: {
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				qrCode: true,
+				serialNumber: true,
+				status: true,
+				createdAt: true,
+				equipmentModel: {
+					select: {
+						name: true,
+						type: true,
+					},
+				},
+				area: {
+					select: {
+						roomName: true,
+						externalBranchId: true,
+					},
+				},
+				createdBy: {
+					select: {
+						name: true,
+					},
+				},
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		});
+
+		const branchesResult = await fetchBranchesAction();
+		if (!branchesResult.ok) {
+			return {
+				ok: false,
+				message: branchesResult.message,
+			};
+		}
+
+		const branchNameById = new Map(
+			branchesResult.branches.map((branch) => [branch.id, branch.name]),
+		);
+
+		const formattedEquipment: EquipmentListItem[] = equipment.map((item) => ({
+			id: item.id,
+			qrCode: item.qrCode,
+			serialNumber: item.serialNumber,
+			modelName: item.equipmentModel.name,
+			modelType: item.equipmentModel.type,
+			status: item.status,
+			areaName: item.area.roomName,
+			branchName: branchNameById.get(item.area.externalBranchId) ?? "Unknown branch",
+			createdBy: item.createdBy.name,
+			createdAt: new Intl.DateTimeFormat("en-US", {
+				month: "short",
+				day: "2-digit",
+				year: "numeric",
+			}).format(item.createdAt),
+		}));
+
+		console.log("[Equipment Action] Fetched equipment", {
+			traceId,
+			count: formattedEquipment.length,
+		});
+
+		if (redisUrl && redisToken) {
+			try {
+				await runRedisCommand<string>(redisUrl, redisToken, [
+					"SET",
+					EQUIPMENT_CACHE_KEY,
+					JSON.stringify(formattedEquipment),
+					"EX",
+					EQUIPMENT_CACHE_TTL_SECONDS,
+				]);
+
+				console.log("[Equipment Action] Cache updated", {
+					traceId,
+					key: EQUIPMENT_CACHE_KEY,
+					ttlSeconds: EQUIPMENT_CACHE_TTL_SECONDS,
+				});
+			} catch (cacheWriteError) {
+				console.warn("[Equipment Action] Cache write failed", {
+					traceId,
+					error:
+						cacheWriteError instanceof Error ? cacheWriteError.message : "Unknown cache write error",
+				});
+			}
+		}
+
+		return {
+			ok: true,
+			equipment: formattedEquipment,
+		};
+	} catch (error) {
+		console.error("[Equipment Action] Fetch failed", {
+			traceId,
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+
+		return {
+			ok: false,
+			message: "Unable to fetch equipment right now.",
+		};
 	}
 }
 
