@@ -9,7 +9,7 @@ interface EditAreaModalProps {
   areaName: string;
   roomName: string;
   roomCode: string;
-  onSubmit: (data: { roomName: string; roomCode: string; }) => void;
+  onSubmit: (data: { roomName: string; roomCode: string; }) => Promise<void> | void;
 }
 
 export function EditAreaModal({
@@ -24,11 +24,10 @@ export function EditAreaModal({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    onSubmit({
+    void onSubmit({
       roomName: formData.get('roomName') as string,
       roomCode: formData.get('roomCode') as string,
     });
-    onClose();
   };
 
   return (

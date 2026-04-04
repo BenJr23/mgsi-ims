@@ -15,6 +15,28 @@ type CreateAreaResult =
 			message: string;
 		};
 
+type UpdateAreaResult =
+	| {
+			ok: true;
+			areaId: string;
+			message: string;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
+type DeleteAreaResult =
+	| {
+			ok: true;
+			areaId: string;
+			message: string;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 
 type RedisCommandResponse<T> = {
@@ -187,6 +209,195 @@ export async function createAreaAction(input: {
 		return {
 			ok: false,
 			message: `Unable to create area: ${errorMessage}`,
+		};
+	}
+}
+
+export async function updateAreaAction(input: {
+	areaId: string;
+	roomName: string;
+	roomCode: string | null;
+}): Promise<UpdateAreaResult> {
+	const traceId = `area_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		console.log("[Area Action] Attempting to get user session for update", {
+			traceId,
+		});
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session || !session.user) {
+			console.warn("[Area Action] Unauthorized area update attempt", { traceId });
+			return {
+				ok: false,
+				message: "You must be logged in to update an area.",
+			};
+		}
+
+		if (!input.areaId || !input.roomName.trim()) {
+			return {
+				ok: false,
+				message: "Area ID and room name are required.",
+			};
+		}
+
+		const normalizedRoomCode = input.roomCode
+			? input.roomCode.trim() || null
+			: null;
+
+		const existingArea = await prisma.area.findFirst({
+			where: {
+				id: input.areaId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!existingArea) {
+			return {
+				ok: false,
+				message: "Area not found or has already been deleted.",
+			};
+		}
+
+		const area = await prisma.area.update({
+			where: {
+				id: input.areaId,
+			},
+			data: {
+				roomName: input.roomName.trim(),
+				roomCode: normalizedRoomCode,
+			},
+			select: {
+				id: true,
+				roomName: true,
+				roomCode: true,
+			},
+		});
+
+		console.log("[Area Action] Area updated successfully", {
+			traceId,
+			areaId: area.id,
+			roomName: area.roomName,
+			roomCode: area.roomCode,
+		});
+
+		await invalidateBranchesCache();
+
+		return {
+			ok: true,
+			areaId: area.id,
+			message: "Area updated successfully.",
+		};
+	} catch (error) {
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+
+		console.error("[Area Action] Update failed", {
+			traceId,
+			error: errorMessage,
+		});
+
+		if (errorMessage.includes("Unique constraint failed")) {
+			return {
+				ok: false,
+				message:
+					"An area with this room code already exists in this branch.",
+			};
+		}
+
+		return {
+			ok: false,
+			message: `Unable to update area: ${errorMessage}`,
+		};
+	}
+}
+
+export async function deleteAreaAction(input: {
+	areaId: string;
+}): Promise<DeleteAreaResult> {
+	const traceId = `area_delete_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		console.log("[Area Action] Attempting to get user session for delete", {
+			traceId,
+		});
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session || !session.user) {
+			console.warn("[Area Action] Unauthorized area delete attempt", { traceId });
+			return {
+				ok: false,
+				message: "You must be logged in to delete an area.",
+			};
+		}
+
+		if (!input.areaId) {
+			return {
+				ok: false,
+				message: "Area ID is required.",
+			};
+		}
+
+		const existingArea = await prisma.area.findFirst({
+			where: {
+				id: input.areaId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!existingArea) {
+			return {
+				ok: false,
+				message: "Area not found or has already been deleted.",
+			};
+		}
+
+		const area = await prisma.area.update({
+			where: {
+				id: input.areaId,
+			},
+			data: {
+				deletedAt: new Date(),
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		console.log("[Area Action] Area soft deleted successfully", {
+			traceId,
+			areaId: area.id,
+		});
+
+		await invalidateBranchesCache();
+
+		return {
+			ok: true,
+			areaId: area.id,
+			message: "Area deleted successfully.",
+		};
+	} catch (error) {
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+
+		console.error("[Area Action] Delete failed", {
+			traceId,
+			error: errorMessage,
+		});
+
+		return {
+			ok: false,
+			message: `Unable to delete area: ${errorMessage}`,
 		};
 	}
 }

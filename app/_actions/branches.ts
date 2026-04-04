@@ -190,6 +190,9 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 		
 		// Fetch local areas from database
 		const localAreas = await prisma.area.findMany({
+			where: {
+				deletedAt: null,
+			},
 			select: {
 				id: true,
 				roomName: true,

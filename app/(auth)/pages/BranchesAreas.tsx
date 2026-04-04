@@ -4,7 +4,7 @@ import { AddAreaModal } from '../components/modals/AddAreaModal';
 import { EditAreaModal } from '../components/modals/EditAreaModal';
 import { DeleteAreaModal } from '../components/modals/DeleteAreaModal';
 import { fetchBranchesAction, type BranchItem } from '@/app/_actions/branches';
-import { createAreaAction } from '@/app/_actions/area';
+import { createAreaAction, deleteAreaAction, updateAreaAction } from '@/app/_actions/area';
 import {
   Building2Icon,
   DoorOpenIcon,
@@ -103,11 +103,69 @@ export function BranchesAreas() {
   const getAreaCount = (branch: BranchItem) => branch.areaCount ?? branch.areas?.length ?? 0;
 
   const handleEditAreaSubmit = async (data: { roomName: string; roomCode: string; }) => {
-    setError('Editing local areas is not wired yet.');
+    if (!editArea) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await updateAreaAction({
+        areaId: editArea.areaId,
+        roomName: data.roomName,
+        roomCode: data.roomCode?.trim() ? data.roomCode.trim() : null,
+      });
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      const refreshResult = await fetchBranchesAction();
+
+      if (refreshResult.ok) {
+        setBranches(refreshResult.branches);
+        setEditArea(null);
+      } else {
+        setError('Area updated but failed to refresh list. Please reload the page.');
+      }
+    } catch {
+      setError('Failed to update area. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDeleteAreaConfirm = async () => {
-    setError('Deleting local areas is not wired yet.');
+    if (!deleteArea) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await deleteAreaAction({
+        areaId: deleteArea.areaId,
+      });
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      const refreshResult = await fetchBranchesAction();
+
+      if (refreshResult.ok) {
+        setBranches(refreshResult.branches);
+        setDeleteArea(null);
+      } else {
+        setError('Area deleted but failed to refresh list. Please reload the page.');
+      }
+    } catch {
+      setError('Failed to delete area. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddAreaSubmit = async (data: { roomName: string; roomCode: string; }) => {

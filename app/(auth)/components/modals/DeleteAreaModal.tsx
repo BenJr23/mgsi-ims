@@ -7,7 +7,7 @@ interface DeleteAreaModalProps {
   onClose: () => void;
   branchName: string;
   areaName: string;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
 }
 
 export function DeleteAreaModal({
@@ -88,7 +88,7 @@ export function DeleteAreaModal({
               </button>
               <button
                 type="button"
-                onClick={onConfirm}
+                onClick={() => void onConfirm()}
                 className="px-4 py-2 text-sm font-medium text-white bg-rose-600 border border-transparent rounded-lg hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors shadow-sm"
               >
                 Delete Area
