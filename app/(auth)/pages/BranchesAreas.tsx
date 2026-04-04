@@ -340,7 +340,7 @@ export function BranchesAreas() {
                                 scope="col"
                                 className="px-4 py-2.5 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                                 
-                                  Capacity
+                                  Equipment
                                 </th>
                                 <th
                                 scope="col"

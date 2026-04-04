@@ -222,7 +222,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				id: room.id,
 				name: room.roomName,
 				code: room.roomCode,
-				equipCount: room.capacity,
+				equipCount: null,
 			}));
 
 			// Get local areas for this branch
@@ -236,6 +236,10 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 
 			// Merge: local areas first (newly created), then API areas
 			const allAreas = [...localAreasFormatted, ...apiAreas];
+			const localEquipmentCount = localAreasFormatted.reduce(
+				(sum, area) => sum + (area.equipCount ?? 0),
+				0,
+			);
 
 			return {
 				id: branch.id,
@@ -243,7 +247,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				code: branch.buildingCode,
 				address: branch.address,
 				areaCount: allAreas.length,
-				equipCount: allAreas.reduce((sum, area) => sum + (area.equipCount ?? 0), 0),
+				equipCount: localEquipmentCount,
 				areas: allAreas,
 			};
 		});
