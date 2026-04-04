@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../components/TopBar';
+import { AddAreaModal } from '../components/modals/AddAreaModal';
 import { fetchBranchesAction, type BranchItem } from '@/app/_actions/branches';
 import {
   Building2Icon,
@@ -16,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function BranchesAreas() {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
+  const [addAreaBranch, setAddAreaBranch] = useState<BranchItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +96,38 @@ export function BranchesAreas() {
   };
 
   const getAreaCount = (branch: BranchItem) => branch.areaCount ?? branch.areas?.length ?? 0;
+
+  const handleAddAreaSubmit = (data: { roomName: string; roomCode: string; }) => {
+    if (!addAreaBranch) {
+      return;
+    }
+
+    setBranches((prevBranches) =>
+      prevBranches.map((branch) => {
+        if (branch.id !== addAreaBranch.id) {
+          return branch;
+        }
+
+        const updatedAreas = [
+          ...(branch.areas ?? []),
+          {
+            id: `temp_${Date.now()}`,
+            name: data.roomName,
+            code: data.roomCode || null,
+            equipCount: 0,
+          },
+        ];
+
+        return {
+          ...branch,
+          areas: updatedAreas,
+          areaCount: updatedAreas.length,
+        };
+      })
+    );
+
+    setAddAreaBranch(null);
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -272,7 +306,10 @@ export function BranchesAreas() {
                           <h4 className="text-sm font-semibold text-stone-900">
                             Areas in {branch.name}
                           </h4>
-                          <button className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-md hover:bg-stone-50 transition-colors shadow-sm">
+                          <button
+                            onClick={() => setAddAreaBranch(branch)}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white border border-stone-300 rounded-md hover:bg-stone-50 transition-colors shadow-sm"
+                          >
                             <PlusIcon className="w-3.5 h-3.5" />
                             Add Area
                           </button>
@@ -384,6 +421,13 @@ export function BranchesAreas() {
           })}
         </div>
       </main>
+
+      <AddAreaModal
+        isOpen={Boolean(addAreaBranch)}
+        onClose={() => setAddAreaBranch(null)}
+        branchName={addAreaBranch?.name ?? ''}
+        onSubmit={handleAddAreaSubmit}
+      />
     </div>);
 
 }
