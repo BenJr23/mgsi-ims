@@ -1,7 +1,8 @@
 import React from 'react';
 import {
   LayoutDashboardIcon,
-  PackageIcon,
+  BoxIcon,
+  QrCodeIcon,
   ScanLineIcon,
   BarChart3Icon,
   Building2Icon,
@@ -14,8 +15,12 @@ const MAIN_NAV_ITEMS = [
   icon: LayoutDashboardIcon
 },
 {
-  name: 'Products',
-  icon: PackageIcon
+  name: 'Equipment Models',
+  icon: BoxIcon
+},
+{
+  name: 'Equipment List',
+  icon: QrCodeIcon
 },
 {
   name: 'Stock Scanner',

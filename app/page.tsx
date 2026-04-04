@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Sidebar } from './(auth)/components/Sidebar';
 import { Dashboard } from './(auth)/pages/Dashboard';
-import { Products } from './(auth)/pages/Products';
+import { EquipmentModels } from './(auth)/pages/EquipmentModels';
+import { EquipmentList } from './(auth)/pages/EquipmentList';
 import { Reports } from './(auth)/pages/Reports';
 import { StockAdjust } from './(auth)/pages/StockAdjust';
 import { BranchesAreas } from './(auth)/pages/BranchesAreas';
@@ -16,8 +17,10 @@ export default function Page() {
     switch (currentPage) {
       case 'Dashboard':
         return <Dashboard />;
-      case 'Products':
-        return <Products />;
+      case 'Equipment Models':
+        return <EquipmentModels />;
+      case 'Equipment List':
+        return <EquipmentList />;
       case 'Stock Scanner':
         return <StockAdjust />;
       case 'Reports':
