@@ -15,7 +15,7 @@ type CreateAreaResult =
 			message: string;
 		};
 
-const BRANCHES_CACHE_KEY = "branches:all:v1";
+const BRANCHES_CACHE_KEY = "branches:all:v2";
 
 type RedisCommandResponse<T> = {
 	result: T;

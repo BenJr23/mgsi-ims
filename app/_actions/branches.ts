@@ -7,6 +7,7 @@ export type BranchArea = {
 	name: string;
 	code: string | null;
 	equipCount: number | null;
+	source: 'local' | 'api';
 };
 
 export type BranchItem = {
@@ -59,7 +60,7 @@ type FetchBranchesResult =
 		};
 
 const BRANCHES_API_URL = "http://localhost:3001/api/branches";
-const BRANCHES_CACHE_KEY = "branches:all:v1";
+const BRANCHES_CACHE_KEY = "branches:all:v2";
 const BRANCHES_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
@@ -223,6 +224,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				name: room.roomName,
 				code: room.roomCode,
 				equipCount: null,
+				source: 'api' as const,
 			}));
 
 			// Get local areas for this branch
@@ -232,6 +234,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				name: area.roomName,
 				code: area.roomCode,
 				equipCount: area.equipment.length,
+				source: 'local' as const,
 			}));
 
 			// Merge: local areas first (newly created), then API areas

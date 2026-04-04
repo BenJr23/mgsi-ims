@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { AddAreaModal } from '../components/modals/AddAreaModal';
+import { EditAreaModal } from '../components/modals/EditAreaModal';
+import { DeleteAreaModal } from '../components/modals/DeleteAreaModal';
 import { fetchBranchesAction, type BranchItem } from '@/app/_actions/branches';
 import { createAreaAction } from '@/app/_actions/area';
 import {
@@ -19,6 +21,8 @@ export function BranchesAreas() {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [addAreaBranch, setAddAreaBranch] = useState<BranchItem | null>(null);
+  const [editArea, setEditArea] = useState<{ branchName: string; areaId: string; areaName: string; roomCode: string; } | null>(null);
+  const [deleteArea, setDeleteArea] = useState<{ branchName: string; areaId: string; areaName: string; } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +101,14 @@ export function BranchesAreas() {
   };
 
   const getAreaCount = (branch: BranchItem) => branch.areaCount ?? branch.areas?.length ?? 0;
+
+  const handleEditAreaSubmit = async (data: { roomName: string; roomCode: string; }) => {
+    setError('Editing local areas is not wired yet.');
+  };
+
+  const handleDeleteAreaConfirm = async () => {
+    setError('Deleting local areas is not wired yet.');
+  };
 
   const handleAddAreaSubmit = async (data: { roomName: string; roomCode: string; }) => {
     if (!addAreaBranch) {
@@ -360,6 +372,7 @@ export function BranchesAreas() {
                                   (area.equipCount ?? 0) / maxEquip * 100
                                 )
                               );
+                              const isLocalArea = area.source === 'local';
                               return (
                                 <tr
                                   key={area.id}
@@ -387,20 +400,35 @@ export function BranchesAreas() {
                                       </div>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                        className="text-stone-400 hover:text-blue-600 p-1 rounded transition-colors"
-                                        aria-label="Edit Area">
-                                        
-                                          <Edit2Icon className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                        className="text-stone-400 hover:text-rose-600 p-1 rounded transition-colors"
-                                        aria-label="Delete Area">
-                                        
-                                          <Trash2Icon className="w-4 h-4" />
-                                        </button>
-                                      </div>
+                                      {isLocalArea ? (
+                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            className="text-stone-400 hover:text-blue-600 p-1 rounded transition-colors"
+                                            aria-label="Edit Area"
+                                            onClick={() => setEditArea({
+                                              branchName: branch.name,
+                                              areaId: area.id,
+                                              areaName: area.name,
+                                              roomCode: area.code ?? '',
+                                            })}
+                                          >
+                                            <Edit2Icon className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            className="text-stone-400 hover:text-rose-600 p-1 rounded transition-colors"
+                                            aria-label="Delete Area"
+                                            onClick={() => setDeleteArea({
+                                              branchName: branch.name,
+                                              areaId: area.id,
+                                              areaName: area.name,
+                                            })}
+                                          >
+                                            <Trash2Icon className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-stone-400">API area</span>
+                                      )}
                                     </td>
                                   </tr>);
 
@@ -432,6 +460,22 @@ export function BranchesAreas() {
         onClose={() => setAddAreaBranch(null)}
         branchName={addAreaBranch?.name ?? ''}
         onSubmit={handleAddAreaSubmit}
+      />
+      <EditAreaModal
+        isOpen={Boolean(editArea)}
+        onClose={() => setEditArea(null)}
+        branchName={editArea?.branchName ?? ''}
+        areaName={editArea?.areaName ?? ''}
+        roomName={editArea?.areaName ?? ''}
+        roomCode={editArea?.roomCode ?? ''}
+        onSubmit={handleEditAreaSubmit}
+      />
+      <DeleteAreaModal
+        isOpen={Boolean(deleteArea)}
+        onClose={() => setDeleteArea(null)}
+        branchName={deleteArea?.branchName ?? ''}
+        areaName={deleteArea?.areaName ?? ''}
+        onConfirm={handleDeleteAreaConfirm}
       />
     </div>);
 
