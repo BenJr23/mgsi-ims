@@ -198,13 +198,22 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				roomName: true,
 				roomCode: true,
 				externalBranchId: true,
-				equipment: {
-					select: {
-						id: true,
-					},
-				},
 			},
 		});
+
+		const equipmentCounts = await prisma.equipment.groupBy({
+			by: ["areaId"],
+			where: {
+				deletedAt: null,
+			},
+			_count: {
+				_all: true,
+			},
+		});
+
+		const equipmentCountByAreaId = new Map(
+			equipmentCounts.map((row) => [row.areaId, row._count._all]),
+		);
 
 		console.log("[Branches Action] Fetched local areas from database", {
 			traceId,
@@ -236,7 +245,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				id: area.id,
 				name: area.roomName,
 				code: area.roomCode,
-				equipCount: area.equipment.length,
+				equipCount: equipmentCountByAreaId.get(area.id) ?? 0,
 				source: 'local' as const,
 			}));
 
