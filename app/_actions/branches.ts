@@ -94,12 +94,8 @@ async function runRedisCommand<T>(
 
 export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 	const secretKey = process.env.BMS_SECRET_KEY?.trim();
-	const redisUrl =
-		process.env.PSTASH_REDIS_REST_URL?.trim() ??
-		process.env.UPSTASH_REDIS_REST_URL?.trim();
-	const redisToken =
-		process.env.PSTASH_REDIS_REST_TOKEN?.trim() ??
-		process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+		const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 	const traceId = `branches_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 	if (!secretKey) {

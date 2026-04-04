@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { AddAreaModal } from '../components/modals/AddAreaModal';
 import { fetchBranchesAction, type BranchItem } from '@/app/_actions/branches';
+import { createAreaAction } from '@/app/_actions/area';
 import {
   Building2Icon,
   DoorOpenIcon,
@@ -97,36 +98,38 @@ export function BranchesAreas() {
 
   const getAreaCount = (branch: BranchItem) => branch.areaCount ?? branch.areas?.length ?? 0;
 
-  const handleAddAreaSubmit = (data: { roomName: string; roomCode: string; }) => {
+  const handleAddAreaSubmit = async (data: { roomName: string; roomCode: string; }) => {
     if (!addAreaBranch) {
       return;
     }
 
-    setBranches((prevBranches) =>
-      prevBranches.map((branch) => {
-        if (branch.id !== addAreaBranch.id) {
-          return branch;
-        }
+    try {
+      const result = await createAreaAction({
+        externalBranchId: addAreaBranch.id,
+        roomName: data.roomName,
+        roomCode: data.roomCode || null,
+      });
 
-        const updatedAreas = [
-          ...(branch.areas ?? []),
-          {
-            id: `temp_${Date.now()}`,
-            name: data.roomName,
-            code: data.roomCode || null,
-            equipCount: 0,
-          },
-        ];
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
 
-        return {
-          ...branch,
-          areas: updatedAreas,
-          areaCount: updatedAreas.length,
-        };
-      })
-    );
+      // Refetch branches to get the updated list with new area
+      setIsLoading(true);
+      const refreshResult = await fetchBranchesAction();
 
-    setAddAreaBranch(null);
+      if (refreshResult.ok) {
+        setBranches(refreshResult.branches);
+      } else {
+        setError('Area created but failed to refresh list. Please reload the page.');
+      }
+    } catch {
+      setError('Failed to create area. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setAddAreaBranch(null);
+    }
   };
 
   return (
