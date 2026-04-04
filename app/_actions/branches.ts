@@ -84,13 +84,22 @@ async function runRedisCommand<T>(
 		throw new Error(`Redis command failed with status ${response.status}`);
 	}
 
-	return (await response.json()) as RedisCommandResponse<T>;
+	const payload = (await response.json()) as RedisCommandResponse<T>;
+	if (payload.error) {
+		throw new Error(`Redis command error: ${payload.error}`);
+	}
+
+	return payload;
 }
 
 export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 	const secretKey = process.env.BMS_SECRET_KEY?.trim();
-	const redisUrl = process.env.PSTASH_REDIS_REST_URL?.trim();
-	const redisToken = process.env.PSTASH_REDIS_REST_TOKEN?.trim();
+	const redisUrl =
+		process.env.PSTASH_REDIS_REST_URL?.trim() ??
+		process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken =
+		process.env.PSTASH_REDIS_REST_TOKEN?.trim() ??
+		process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 	const traceId = `branches_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 	if (!secretKey) {
@@ -99,6 +108,14 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 			ok: false,
 			message: "BMS_SECRET_KEY is not configured.",
 		};
+	}
+
+	if ((redisUrl && !redisToken) || (!redisUrl && redisToken)) {
+		console.warn("[Branches Action] Partial Redis configuration detected", {
+			traceId,
+			hasRedisUrl: Boolean(redisUrl),
+			hasRedisToken: Boolean(redisToken),
+		});
 	}
 
 	try {
