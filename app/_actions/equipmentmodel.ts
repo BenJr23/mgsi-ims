@@ -44,6 +44,62 @@ type FetchEquipmentModelsResult =
 			message: string;
 		};
 
+const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
+const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
+
+type RedisCommandResponse<T> = {
+	result: T;
+	error?: string;
+};
+
+async function runRedisCommand<T>(
+	redisUrl: string,
+	redisToken: string,
+	command: unknown[],
+): Promise<RedisCommandResponse<T>> {
+	const response = await fetch(redisUrl, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${redisToken}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(command),
+		cache: "no-store",
+	});
+
+	if (!response.ok) {
+		throw new Error(`Redis command failed with status ${response.status}`);
+	}
+
+	const payload = (await response.json()) as RedisCommandResponse<T>;
+	if (payload.error) {
+		throw new Error(`Redis command error: ${payload.error}`);
+	}
+
+	return payload;
+}
+
+async function invalidateEquipmentModelsCache(): Promise<void> {
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+
+	if (!redisUrl || !redisToken) {
+		console.warn("[EquipmentModel Action] Redis not configured, skipping cache invalidation");
+		return;
+	}
+
+	try {
+		await runRedisCommand<number>(redisUrl, redisToken, ["DEL", EQUIPMENT_MODELS_CACHE_KEY]);
+		console.log("[EquipmentModel Action] Cache invalidated", {
+			key: EQUIPMENT_MODELS_CACHE_KEY,
+		});
+	} catch (error) {
+		console.warn("[EquipmentModel Action] Cache invalidation failed", {
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+	}
+}
+
 const VALID_EQUIPMENT_TYPES: EquipmentType[] = [
 	"FURNITURE",
 	"ELECTRONICS",
@@ -54,8 +110,44 @@ const VALID_EQUIPMENT_TYPES: EquipmentType[] = [
 
 export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModelsResult> {
 	const traceId = `equipment_model_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 
 	try {
+		if (redisUrl && redisToken) {
+			try {
+				const cacheResponse = await runRedisCommand<string | null>(redisUrl, redisToken, [
+					"GET",
+					EQUIPMENT_MODELS_CACHE_KEY,
+				]);
+
+				if (cacheResponse.result) {
+					const cachedModels = JSON.parse(cacheResponse.result) as EquipmentModelListItem[];
+					console.log("[EquipmentModel Action] Cache hit", {
+						traceId,
+						key: EQUIPMENT_MODELS_CACHE_KEY,
+						count: cachedModels.length,
+					});
+
+					return {
+						ok: true,
+						models: cachedModels,
+					};
+				}
+
+				console.log("[EquipmentModel Action] Cache miss", {
+					traceId,
+					key: EQUIPMENT_MODELS_CACHE_KEY,
+				});
+			} catch (cacheReadError) {
+				console.warn("[EquipmentModel Action] Cache read failed", {
+					traceId,
+					error:
+						cacheReadError instanceof Error ? cacheReadError.message : "Unknown cache read error",
+				});
+			}
+		}
+
 		const models = await prisma.equipmentModel.findMany({
 			where: {
 				deletedAt: null,
@@ -107,6 +199,30 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			traceId,
 			count: formattedModels.length,
 		});
+
+		if (redisUrl && redisToken) {
+			try {
+				await runRedisCommand<string>(redisUrl, redisToken, [
+					"SET",
+					EQUIPMENT_MODELS_CACHE_KEY,
+					JSON.stringify(formattedModels),
+					"EX",
+					EQUIPMENT_MODELS_CACHE_TTL_SECONDS,
+				]);
+
+				console.log("[EquipmentModel Action] Cache updated", {
+					traceId,
+					key: EQUIPMENT_MODELS_CACHE_KEY,
+					ttlSeconds: EQUIPMENT_MODELS_CACHE_TTL_SECONDS,
+				});
+			} catch (cacheWriteError) {
+				console.warn("[EquipmentModel Action] Cache write failed", {
+					traceId,
+					error:
+						cacheWriteError instanceof Error ? cacheWriteError.message : "Unknown cache write error",
+				});
+			}
+		}
 
 		return {
 			ok: true,
@@ -196,6 +312,8 @@ export async function createEquipmentModelAction(input: {
 			name: equipmentModel.name,
 			sku: equipmentModel.sku,
 		});
+
+		await invalidateEquipmentModelsCache();
 
 		return {
 			ok: true,
