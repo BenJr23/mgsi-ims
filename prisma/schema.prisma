@@ -23,19 +23,20 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          UserRole  @default(USER)
-  phoneNumber   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  areas         Area[]   @relation("AreaCreatedBy")
-  equipment     Equipment[] @relation("EquipmentCreatedBy")
+  id              String           @id @default(cuid())
+  name            String
+  email           String           @unique
+  emailVerified   Boolean          @default(false)
+  image           String?
+  role            UserRole         @default(USER)
+  phoneNumber     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  areas           Area[]           @relation("AreaCreatedBy")
+  equipmentModels EquipmentModel[] @relation("EquipmentModelCreatedBy")
+  equipment       Equipment[]      @relation("EquipmentCreatedBy")
 }
 
 model Session {
@@ -116,22 +117,41 @@ model Area {
   @@map("areas")
 }
 
-model Equipment {
-  id          String          @id @default(uuid())
+model EquipmentModel {
+  id          String        @id @default(uuid())
   name        String
   description String?
-  qrCode      String          @unique
+  sku         String?       @unique
   type        EquipmentType
-  status      EquipmentStatus @default(AVAILABLE)
-  areaId      String
-  price       Decimal         @db.Decimal(10, 2)
+  price       Decimal?      @db.Decimal(10, 2)
   createdById String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
-  area        Area            @relation(fields: [areaId], references: [id])
-  createdBy   User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  createdBy   User          @relation("EquipmentModelCreatedBy", fields: [createdById], references: [id])
+  equipment   Equipment[]
 
+  @@index([createdById])
+  @@index([type])
+  @@map("equipment_models")
+}
+
+model Equipment {
+  id               String          @id @default(uuid())
+  qrCode           String          @unique
+  serialNumber     String?         @unique
+  equipmentModelId String
+  status           EquipmentStatus @default(AVAILABLE)
+  areaId           String
+  createdById      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+  equipmentModel   EquipmentModel  @relation(fields: [equipmentModelId], references: [id])
+  area             Area            @relation(fields: [areaId], references: [id])
+  createdBy        User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([equipmentModelId])
   @@index([areaId])
   @@index([createdById])
   @@map("equipment")
