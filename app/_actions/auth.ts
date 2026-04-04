@@ -159,7 +159,6 @@ export async function signInWithEmailAction(input: {
         const shouldUpdateUser =
           localUser.name !== fetchedUser.name ||
           localUser.phoneNumber !== fetchedUser.phoneNumber ||
-          localUser.role !== fetchedUser.role ||
           localUser.emailVerified !== fetchedUser.emailVerified;
 
         if (shouldUpdateUser) {
@@ -168,7 +167,6 @@ export async function signInWithEmailAction(input: {
             data: {
               name: fetchedUser.name,
               phoneNumber: fetchedUser.phoneNumber,
-              role: fetchedUser.role,
               emailVerified: fetchedUser.emailVerified,
             },
           });
