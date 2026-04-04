@@ -34,7 +34,6 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
-  branches      Branch[] @relation("BranchCreatedBy")
   areas         Area[]   @relation("AreaCreatedBy")
   equipment     Equipment[] @relation("EquipmentCreatedBy")
 }
@@ -99,39 +98,21 @@ enum EquipmentStatus {
   LOST
 }
 
-model Branch {
-  id           String      @id @default(uuid())
-  branchName   String
-  branchCode   String      @unique
-  createdById  String
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  address      String?
-  deletedAt    DateTime?
-  createdBy    User        @relation("BranchCreatedBy", fields: [createdById], references: [id])
-  areas        Area[]
-  equipment    Equipment[]
-
-  @@index([createdById])
-  @@map("branches")
-}
-
 model Area {
-  id          String     @id @default(uuid())
-  roomName    String
-  roomCode    String?
-  branchId    String
-  createdById String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  deletedAt   DateTime?
-  branch      Branch     @relation(fields: [branchId], references: [id])
-  createdBy   User       @relation("AreaCreatedBy", fields: [createdById], references: [id])
-  equipment   Equipment[]
+  id               String      @id @default(uuid())
+  roomName         String
+  roomCode         String?
+  externalBranchId String
+  createdById      String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+  createdBy        User        @relation("AreaCreatedBy", fields: [createdById], references: [id])
+  equipment        Equipment[]
 
-  @@index([branchId])
+  @@index([externalBranchId])
   @@index([createdById])
-  @@unique([branchId, roomCode])
+  @@unique([externalBranchId, roomCode])
   @@map("areas")
 }
 
@@ -142,18 +123,15 @@ model Equipment {
   qrCode      String          @unique
   type        EquipmentType
   status      EquipmentStatus @default(AVAILABLE)
-  branchId    String
-  areaId      String?
+  areaId      String
   price       Decimal         @db.Decimal(10, 2)
   createdById String
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   deletedAt   DateTime?
-  branch      Branch          @relation(fields: [branchId], references: [id])
-  area        Area?           @relation(fields: [areaId], references: [id])
+  area        Area            @relation(fields: [areaId], references: [id])
   createdBy   User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
 
-  @@index([branchId])
   @@index([areaId])
   @@index([createdById])
   @@map("equipment")
