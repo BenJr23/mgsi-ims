@@ -235,7 +235,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				id: room.id,
 				name: room.roomName,
 				code: room.roomCode,
-				equipCount: null,
+				equipCount: equipmentCountByAreaId.get(room.id) ?? 0,
 				source: 'api' as const,
 			}));
 
@@ -251,7 +251,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 
 			// Merge: local areas first (newly created), then API areas
 			const allAreas = [...localAreasFormatted, ...apiAreas];
-			const localEquipmentCount = localAreasFormatted.reduce(
+			const totalEquipmentCount = allAreas.reduce(
 				(sum, area) => sum + (area.equipCount ?? 0),
 				0,
 			);
@@ -262,7 +262,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 				code: branch.buildingCode,
 				address: branch.address,
 				areaCount: allAreas.length,
-				equipCount: localEquipmentCount,
+				equipCount: totalEquipmentCount,
 				areas: allAreas,
 			};
 		});
