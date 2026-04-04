@@ -109,7 +109,6 @@ model Area {
   updatedAt        DateTime    @updatedAt
   deletedAt        DateTime?
   createdBy        User        @relation("AreaCreatedBy", fields: [createdById], references: [id])
-  equipment        Equipment[]
 
   @@index([externalBranchId])
   @@index([createdById])
@@ -148,7 +147,6 @@ model Equipment {
   updatedAt        DateTime        @updatedAt
   deletedAt        DateTime?
   equipmentModel   EquipmentModel  @relation(fields: [equipmentModelId], references: [id])
-  area             Area            @relation(fields: [areaId], references: [id])
   createdBy        User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
 
   @@index([equipmentModelId])

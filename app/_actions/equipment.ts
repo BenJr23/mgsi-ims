@@ -179,12 +179,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 						type: true,
 					},
 				},
-				area: {
-					select: {
-						roomName: true,
-						externalBranchId: true,
-					},
-				},
+				areaId: true,
 				createdBy: {
 					select: {
 						name: true,
@@ -196,8 +191,10 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			},
 		});
 
-		const branchNameById = new Map(
-			branchesResult.branches.map((branch) => [branch.id, branch.name]),
+		const areaLookup = new Map(
+			branchesResult.branches.flatMap((branch) =>
+				(branch.areas ?? []).map((area) => [area.id, { areaName: area.name, branchName: branch.name }]),
+			),
 		);
 
 		const formattedEquipment: EquipmentListItem[] = equipment.map((item) => ({
@@ -207,8 +204,8 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			modelName: item.equipmentModel.name,
 			modelType: item.equipmentModel.type,
 			status: item.status,
-			areaName: item.area.roomName,
-			branchName: branchNameById.get(item.area.externalBranchId) ?? "Unknown branch",
+			areaName: areaLookup.get(item.areaId)?.areaName ?? item.areaId,
+			branchName: areaLookup.get(item.areaId)?.branchName ?? "Unknown branch",
 			createdBy: item.createdBy.name,
 			createdAt: new Intl.DateTimeFormat("en-US", {
 				month: "short",
@@ -272,7 +269,7 @@ export async function createEquipmentAction(input: {
 	serialNumber: string | null;
 	equipmentModelId: string;
 	status: EquipmentStatus;
-	areaId: string;
+	areaId: string; // areaId is now a plain string
 }): Promise<CreateEquipmentResult> {
 	const traceId = `equipment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -323,33 +320,12 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
-		const [branchesResult, equipmentModelsResult] = await Promise.all([
-			fetchBranchesAction(),
-			fetchEquipmentModelsAction(),
-		]);
-
-		if (!branchesResult.ok) {
-			return {
-				ok: false,
-				message: branchesResult.message,
-			};
-		}
+		const equipmentModelsResult = await fetchEquipmentModelsAction();
 
 		if (!equipmentModelsResult.ok) {
 			return {
 				ok: false,
 				message: equipmentModelsResult.message,
-			};
-		}
-
-		const areaExists = branchesResult.branches.some((branch) =>
-			(branch.areas ?? []).some((area) => area.id === normalizedAreaId),
-		);
-
-		if (!areaExists) {
-			return {
-				ok: false,
-				message: "Selected area was not found. Please refresh and try again.",
 			};
 		}
 
@@ -370,7 +346,7 @@ export async function createEquipmentAction(input: {
 				serialNumber: normalizedSerialNumber,
 				equipmentModelId: normalizedEquipmentModelId,
 				status: normalizedStatus,
-				areaId: normalizedAreaId,
+				areaId: normalizedAreaId, // areaId is now stored as a plain string
 				createdById: session.user.id,
 			},
 			select: {
