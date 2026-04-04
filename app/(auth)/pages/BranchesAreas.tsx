@@ -103,11 +103,13 @@ export function BranchesAreas() {
       return;
     }
 
+    setIsLoading(true);
+
     try {
       const result = await createAreaAction({
         externalBranchId: addAreaBranch.id,
         roomName: data.roomName,
-        roomCode: data.roomCode || null,
+        roomCode: data.roomCode?.trim() ? data.roomCode.trim() : null,
       });
 
       if (!result.ok) {

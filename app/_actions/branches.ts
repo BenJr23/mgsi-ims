@@ -1,5 +1,7 @@
 "use server";
 
+import { prisma } from "@/lib/prisma";
+
 export type BranchArea = {
 	id: string;
 	name: string;
@@ -184,21 +186,69 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 		console.log("[Branches Action] Parsed payload", { traceId, payload });
 
 		const rawBranches = payload.data?.branches ?? payload.branches ?? [];
-		const branches = rawBranches.map((branch) => ({
-			id: branch.id,
-			name: branch.buildingName,
-			code: branch.buildingCode,
-			address: branch.address,
-			areaCount: branch.rooms.length,
-			equipCount: branch.rooms.reduce((sum, room) => sum + (room.capacity ?? 0), 0),
-			areas: branch.rooms.map((room) => ({
+		
+		// Fetch local areas from database
+		const localAreas = await prisma.area.findMany({
+			select: {
+				id: true,
+				roomName: true,
+				roomCode: true,
+				externalBranchId: true,
+				equipment: {
+					select: {
+						id: true,
+					},
+				},
+			},
+		});
+
+		console.log("[Branches Action] Fetched local areas from database", {
+			traceId,
+			count: localAreas.length,
+		});
+
+		// Create a map of local areas by externalBranchId for fast lookup
+		const localAreasByBranch = new Map<string, typeof localAreas>();
+		localAreas.forEach((area) => {
+			if (!localAreasByBranch.has(area.externalBranchId)) {
+				localAreasByBranch.set(area.externalBranchId, []);
+			}
+			localAreasByBranch.get(area.externalBranchId)!.push(area);
+		});
+
+		const branches = rawBranches.map((branch) => {
+			// Get API areas (rooms)
+			const apiAreas = branch.rooms.map((room) => ({
 				id: room.id,
 				name: room.roomName,
 				code: room.roomCode,
 				equipCount: room.capacity,
-			})),
-		}));
-		console.log("[Branches Action] Normalized branches", {
+			}));
+
+			// Get local areas for this branch
+			const branchLocalAreas = localAreasByBranch.get(branch.id) ?? [];
+			const localAreasFormatted = branchLocalAreas.map((area) => ({
+				id: area.id,
+				name: area.roomName,
+				code: area.roomCode,
+				equipCount: area.equipment.length,
+			}));
+
+			// Merge: local areas first (newly created), then API areas
+			const allAreas = [...localAreasFormatted, ...apiAreas];
+
+			return {
+				id: branch.id,
+				name: branch.buildingName,
+				code: branch.buildingCode,
+				address: branch.address,
+				areaCount: allAreas.length,
+				equipCount: allAreas.reduce((sum, area) => sum + (area.equipCount ?? 0), 0),
+				areas: allAreas,
+			};
+		});
+		
+		console.log("[Branches Action] Normalized branches with local areas merged", {
 			traceId,
 			count: branches.length,
 		});

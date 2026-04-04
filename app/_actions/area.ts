@@ -50,8 +50,8 @@ async function runRedisCommand<T>(
 }
 
 async function invalidateBranchesCache(): Promise<void> {
-		const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
-		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 	if (!redisUrl || !redisToken) {
 		console.warn("[Area Action] Redis not configured, skipping cache invalidation");
 		return;
@@ -78,8 +78,16 @@ export async function createAreaAction(input: {
 
 	try {
 		// Get current user session
+		console.log("[Area Action] Attempting to get user session", { traceId });
 		const session = await auth.api.getSession({
 			headers: await headers(),
+		});
+
+		console.log("[Area Action] Session response", {
+			traceId,
+			hasSession: Boolean(session),
+			hasUser: Boolean(session?.user),
+			userId: session?.user?.id,
 		});
 
 		if (!session || !session.user) {
@@ -94,17 +102,27 @@ export async function createAreaAction(input: {
 
 		// Validate input
 		if (!input.externalBranchId || !input.roomName.trim()) {
+			console.warn("[Area Action] Invalid input", {
+				traceId,
+				externalBranchId: input.externalBranchId,
+				roomName: input.roomName,
+			});
 			return {
 				ok: false,
 				message: "External branch ID and room name are required.",
 			};
 		}
 
-		console.log("[Area Action] Creating area", {
+		// Normalize roomCode: convert empty string to null
+		const normalizedRoomCode = input.roomCode
+			? input.roomCode.trim() || null
+			: null;
+
+		console.log("[Area Action] Creating area with normalized data", {
 			traceId,
 			externalBranchId: input.externalBranchId,
-			roomName: input.roomName,
-			roomCode: input.roomCode,
+			roomName: input.roomName.trim(),
+			roomCode: normalizedRoomCode,
 			createdById: userId,
 		});
 
@@ -112,7 +130,7 @@ export async function createAreaAction(input: {
 		const area = await prisma.area.create({
 			data: {
 				roomName: input.roomName.trim(),
-				roomCode: input.roomCode?.trim() || null,
+				roomCode: normalizedRoomCode,
 				externalBranchId: input.externalBranchId,
 				createdById: userId,
 			},
@@ -127,9 +145,10 @@ export async function createAreaAction(input: {
 			traceId,
 			areaId: area.id,
 			roomName: area.roomName,
+			roomCode: area.roomCode,
 		});
 
-		// Invalidate branches cache to reflect new area
+		// Invalidate cache so next refetch gets fresh data including this new area
 		await invalidateBranchesCache();
 
 		return {
@@ -138,16 +157,18 @@ export async function createAreaAction(input: {
 			message: "Area created successfully.",
 		};
 	} catch (error) {
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+		const errorStack = error instanceof Error ? error.stack : "";
+
 		console.error("[Area Action] Create failed", {
 			traceId,
-			error: error instanceof Error ? error.message : "Unknown error",
+			error: errorMessage,
+			stack: errorStack,
 		});
 
 		// Check if it's a unique constraint violation (duplicate roomCode per branch)
-		if (
-			error instanceof Error &&
-			error.message.includes("Unique constraint failed")
-		) {
+		if (errorMessage.includes("Unique constraint failed")) {
 			return {
 				ok: false,
 				message:
@@ -155,9 +176,17 @@ export async function createAreaAction(input: {
 			};
 		}
 
+		// Check for other known error patterns
+		if (errorMessage.includes("Foreign key constraint failed")) {
+			return {
+				ok: false,
+				message: "Invalid branch reference. Please refresh and try again.",
+			};
+		}
+
 		return {
 			ok: false,
-			message: "Unable to create area. Please try again.",
+			message: `Unable to create area: ${errorMessage}`,
 		};
 	}
 }
