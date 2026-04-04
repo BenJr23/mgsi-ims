@@ -4,10 +4,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './(auth)/components/Sidebar';
 import { Dashboard } from './(auth)/pages/Dashboard';
 import { Products } from './(auth)/pages/Products';
-import { Orders } from './(auth)/pages/Orders';
-import { Suppliers } from './(auth)/pages/Suppliers';
 import { Reports } from './(auth)/pages/Reports';
-import { Settings } from './(auth)/pages/Settings';
 import { StockAdjust } from './(auth)/pages/StockAdjust';
 import { BranchesAreas } from './(auth)/pages/BranchesAreas';
 import { UserManagement } from './(auth)/pages/UserManagement';
@@ -23,14 +20,8 @@ export default function Page() {
         return <Products />;
       case 'Stock Scanner':
         return <StockAdjust />;
-      case 'Orders':
-        return <Orders />;
-      case 'Suppliers':
-        return <Suppliers />;
       case 'Reports':
         return <Reports />;
-      case 'Settings':
-        return <Settings />;
       case 'Branches & Areas':
         return <BranchesAreas />;
       case 'User Management':

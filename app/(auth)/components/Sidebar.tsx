@@ -3,10 +3,7 @@ import {
   LayoutDashboardIcon,
   PackageIcon,
   ScanLineIcon,
-  ShoppingCartIcon,
-  TruckIcon,
   BarChart3Icon,
-  SettingsIcon,
   Building2Icon,
   UsersIcon,
   ActivityIcon } from
@@ -25,20 +22,8 @@ const MAIN_NAV_ITEMS = [
   icon: ScanLineIcon
 },
 {
-  name: 'Orders',
-  icon: ShoppingCartIcon
-},
-{
-  name: 'Suppliers',
-  icon: TruckIcon
-},
-{
   name: 'Reports',
   icon: BarChart3Icon
-},
-{
-  name: 'Settings',
-  icon: SettingsIcon
 }];
 
 const ADMIN_NAV_ITEMS = [
