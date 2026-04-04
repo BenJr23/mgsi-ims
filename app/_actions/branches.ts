@@ -57,9 +57,40 @@ type FetchBranchesResult =
 		};
 
 const BRANCHES_API_URL = "http://localhost:3001/api/branches";
+const BRANCHES_CACHE_KEY = "branches:all:v1";
+const BRANCHES_CACHE_TTL_SECONDS = 300;
+
+type RedisCommandResponse<T> = {
+	result: T;
+	error?: string;
+};
+
+async function runRedisCommand<T>(
+	redisUrl: string,
+	redisToken: string,
+	command: unknown[],
+): Promise<RedisCommandResponse<T>> {
+	const response = await fetch(redisUrl, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${redisToken}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(command),
+		cache: "no-store",
+	});
+
+	if (!response.ok) {
+		throw new Error(`Redis command failed with status ${response.status}`);
+	}
+
+	return (await response.json()) as RedisCommandResponse<T>;
+}
 
 export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 	const secretKey = process.env.BMS_SECRET_KEY?.trim();
+	const redisUrl = process.env.PSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.PSTASH_REDIS_REST_TOKEN?.trim();
 	const traceId = `branches_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 	if (!secretKey) {
@@ -71,6 +102,40 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 	}
 
 	try {
+		if (redisUrl && redisToken) {
+			try {
+				const cacheResponse = await runRedisCommand<string | null>(redisUrl, redisToken, [
+					"GET",
+					BRANCHES_CACHE_KEY,
+				]);
+
+				if (cacheResponse.result) {
+					const cachedBranches = JSON.parse(cacheResponse.result) as BranchItem[];
+					console.log("[Branches Action] Cache hit", {
+						traceId,
+						key: BRANCHES_CACHE_KEY,
+						count: cachedBranches.length,
+					});
+
+					return {
+						ok: true,
+						branches: cachedBranches,
+					};
+				}
+
+				console.log("[Branches Action] Cache miss", {
+					traceId,
+					key: BRANCHES_CACHE_KEY,
+				});
+			} catch (cacheReadError) {
+				console.warn("[Branches Action] Cache read failed", {
+					traceId,
+					error:
+						cacheReadError instanceof Error ? cacheReadError.message : "Unknown cache read error",
+				});
+			}
+		}
+
 		console.log("[Branches Action] Fetching branches", {
 			traceId,
 			url: BRANCHES_API_URL,
@@ -124,6 +189,30 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 			traceId,
 			count: branches.length,
 		});
+
+		if (redisUrl && redisToken) {
+			try {
+				await runRedisCommand<string>(redisUrl, redisToken, [
+					"SET",
+					BRANCHES_CACHE_KEY,
+					JSON.stringify(branches),
+					"EX",
+					BRANCHES_CACHE_TTL_SECONDS,
+				]);
+
+				console.log("[Branches Action] Cache updated", {
+					traceId,
+					key: BRANCHES_CACHE_KEY,
+					ttlSeconds: BRANCHES_CACHE_TTL_SECONDS,
+				});
+			} catch (cacheWriteError) {
+				console.warn("[Branches Action] Cache write failed", {
+					traceId,
+					error:
+						cacheWriteError instanceof Error ? cacheWriteError.message : "Unknown cache write error",
+				});
+			}
+		}
 
 		return {
 			ok: true,
