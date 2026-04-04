@@ -143,6 +143,26 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			}
 		}
 
+		// Warm dependent caches so equipment, branches, and equipment models stay aligned.
+		const [branchesResult, equipmentModelsResult] = await Promise.all([
+			fetchBranchesAction(),
+			fetchEquipmentModelsAction(),
+		]);
+
+		if (!branchesResult.ok) {
+			return {
+				ok: false,
+				message: branchesResult.message,
+			};
+		}
+
+		if (!equipmentModelsResult.ok) {
+			console.warn("[Equipment Action] Equipment model cache warmup failed", {
+				traceId,
+				message: equipmentModelsResult.message,
+			});
+		}
+
 		const equipment = await prisma.equipment.findMany({
 			where: {
 				deletedAt: null,
@@ -175,14 +195,6 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 				createdAt: "desc",
 			},
 		});
-
-		const branchesResult = await fetchBranchesAction();
-		if (!branchesResult.ok) {
-			return {
-				ok: false,
-				message: branchesResult.message,
-			};
-		}
 
 		const branchNameById = new Map(
 			branchesResult.branches.map((branch) => [branch.id, branch.name]),
