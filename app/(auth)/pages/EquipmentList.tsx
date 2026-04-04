@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TopBar } from '../components/TopBar';
+import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
 import {
   QrCodeIcon,
   SearchIcon,
@@ -232,6 +233,19 @@ function formatStatus(status: EquipmentStatus) {
 }
 export function EquipmentList() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
+  const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
+
+  const handleRegisterEquipmentSubmit = (data: {
+    qrCode: string;
+    serialNumber: string;
+    equipmentModelId: string;
+    status: EquipmentStatus;
+    areaId: string;
+  }) => {
+    console.log('[Equipment List] Register equipment payload', data);
+    setIsRegisterEquipmentModalOpen(false);
+  };
+
   const filtered =
   activeTab === 'ALL' ?
   EQUIPMENT :
@@ -256,7 +270,10 @@ export function EquipmentList() {
               <DownloadIcon className="w-4 h-4" />
               Export
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
+            <button
+              onClick={() => setIsRegisterEquipmentModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
+            >
               <PlusIcon className="w-4 h-4" aria-hidden="true" />
               Register Equipment
             </button>
@@ -447,6 +464,12 @@ export function EquipmentList() {
           </div>
         </div>
       </main>
+
+      <RegisterEquipmentModal
+        isOpen={isRegisterEquipmentModalOpen}
+        onClose={() => setIsRegisterEquipmentModalOpen(false)}
+        onSubmit={handleRegisterEquipmentSubmit}
+      />
     </div>);
 
 }
