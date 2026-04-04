@@ -156,15 +156,23 @@ export async function signInWithEmailAction(input: {
           },
         });
       } else {
-        await prisma.user.update({
-          where: { id: localUser.id },
-          data: {
-            name: fetchedUser.name,
-            phoneNumber: fetchedUser.phoneNumber,
-            role: fetchedUser.role,
-            emailVerified: fetchedUser.emailVerified,
-          },
-        });
+        const shouldUpdateUser =
+          localUser.name !== fetchedUser.name ||
+          localUser.phoneNumber !== fetchedUser.phoneNumber ||
+          localUser.role !== fetchedUser.role ||
+          localUser.emailVerified !== fetchedUser.emailVerified;
+
+        if (shouldUpdateUser) {
+          await prisma.user.update({
+            where: { id: localUser.id },
+            data: {
+              name: fetchedUser.name,
+              phoneNumber: fetchedUser.phoneNumber,
+              role: fetchedUser.role,
+              emailVerified: fetchedUser.emailVerified,
+            },
+          });
+        }
 
         const credentialAccount = localUser.accounts[0];
         if (!credentialAccount) {
