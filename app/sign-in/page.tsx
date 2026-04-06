@@ -1,7 +1,6 @@
 "use client";
 
 import { signInWithEmailAction } from "@/app/_actions/auth";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
@@ -54,7 +53,8 @@ export default function LogInPage() {
       const nextPath = searchParams.get("next") || "/";
       router.replace(nextPath);
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error("[Sign In] Error:", error);
       setServerError("Unable to sign in right now. Please try again.");
     } finally {
       setIsLoading(false);
@@ -121,13 +121,6 @@ export default function LogInPage() {
             {isLoading ? "Signing in..." : "Log In"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-slate-600">
-          New here?{" "}
-          <Link href="/sign-up" className="font-semibold text-blue-700 hover:text-blue-800">
-            Create an account
-          </Link>
-        </p>
       </section>
     </main>
   );

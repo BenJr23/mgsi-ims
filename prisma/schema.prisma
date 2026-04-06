@@ -16,16 +16,27 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  ADMIN
+  USER
+  MANAGER
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id              String           @id @default(cuid())
+  name            String
+  email           String           @unique
+  emailVerified   Boolean          @default(false)
+  image           String?
+  role            UserRole         @default(USER)
+  phoneNumber     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  areas           Area[]           @relation("AreaCreatedBy")
+  equipmentModels EquipmentModel[] @relation("EquipmentModelCreatedBy")
+  equipment       Equipment[]      @relation("EquipmentCreatedBy")
 }
 
 model Session {
@@ -71,4 +82,75 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+}
+
+enum EquipmentType {
+  FURNITURE
+  ELECTRONICS
+  APPLIANCE
+  TOOL
+  OTHER
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  MAINTENANCE
+  RETIRED
+  LOST
+}
+
+model Area {
+  id               String      @id @default(uuid())
+  roomName         String
+  roomCode         String?
+  externalBranchId String
+  createdById      String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+  createdBy        User        @relation("AreaCreatedBy", fields: [createdById], references: [id])
+
+  @@index([externalBranchId])
+  @@index([createdById])
+  @@unique([externalBranchId, roomCode])
+  @@map("areas")
+}
+
+model EquipmentModel {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  sku         String?       @unique
+  type        EquipmentType
+  price       Decimal?      @db.Decimal(10, 2)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  createdBy   User          @relation("EquipmentModelCreatedBy", fields: [createdById], references: [id])
+  equipment   Equipment[]
+
+  @@index([createdById])
+  @@index([type])
+  @@map("equipment_models")
+}
+
+model Equipment {
+  id               String          @id @default(uuid())
+  qrCode           String          @unique
+  serialNumber     String?         @unique
+  equipmentModelId String
+  status           EquipmentStatus @default(AVAILABLE)
+  areaId           String
+  createdById      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+  equipmentModel   EquipmentModel  @relation(fields: [equipmentModelId], references: [id])
+  createdBy        User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([equipmentModelId])
+  @@index([areaId])
+  @@index([createdById])
+  @@map("equipment")
 }

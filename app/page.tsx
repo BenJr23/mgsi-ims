@@ -3,12 +3,12 @@
 import React, { useState } from 'react';
 import { Sidebar } from './(auth)/components/Sidebar';
 import { Dashboard } from './(auth)/pages/Dashboard';
-import { Products } from './(auth)/pages/Products';
-import { Orders } from './(auth)/pages/Orders';
-import { Suppliers } from './(auth)/pages/Suppliers';
+import { EquipmentModels } from './(auth)/pages/EquipmentModels';
+import { EquipmentList } from './(auth)/pages/EquipmentList';
 import { Reports } from './(auth)/pages/Reports';
-import { Settings } from './(auth)/pages/Settings';
 import { StockAdjust } from './(auth)/pages/StockAdjust';
+import { BranchesAreas } from './(auth)/pages/BranchesAreas';
+import { UserManagement } from './(auth)/pages/UserManagement';
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState('Dashboard');
@@ -17,18 +17,18 @@ export default function Page() {
     switch (currentPage) {
       case 'Dashboard':
         return <Dashboard />;
-      case 'Products':
-        return <Products />;
+      case 'Equipment Models':
+        return <EquipmentModels />;
+      case 'Equipment List':
+        return <EquipmentList />;
       case 'Stock Scanner':
         return <StockAdjust />;
-      case 'Orders':
-        return <Orders />;
-      case 'Suppliers':
-        return <Suppliers />;
       case 'Reports':
         return <Reports />;
-      case 'Settings':
-        return <Settings />;
+      case 'Branches & Areas':
+        return <BranchesAreas />;
+      case 'User Management':
+        return <UserManagement />;
       default:
         return <Dashboard />;
     }

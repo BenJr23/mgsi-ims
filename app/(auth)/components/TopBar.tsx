@@ -1,6 +1,46 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { SearchIcon, BellIcon } from 'lucide-react';
+
+import { signOutAction } from '@/app/_actions/auth';
+import { useRouter } from 'next/navigation';
+
 export function TopBar() {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!dropdownRef.current) {
+        return;
+      }
+
+      if (!dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  function handleSignOut() {
+    startTransition(async () => {
+      const result = await signOutAction();
+
+      if (result.ok) {
+        setIsDropdownOpen(false);
+        router.replace('/sign-in');
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 sticky top-0 z-10">
       {/* Search */}
@@ -37,17 +77,43 @@ export function TopBar() {
 
         <div className="h-8 w-px bg-stone-200" aria-hidden="true" />
 
-        <button
-          type="button"
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          aria-label="User menu">
-          
-          <img
-            className="h-8 w-8 rounded-full object-cover border border-stone-200 bg-stone-100"
-            src="https://ui-avatars.com/api/?name=Jane+Doe&background=f5f5f4&color=1c1917"
-            alt="User avatar" />
-          
-        </button>
+        <div ref={dropdownRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            aria-label="User menu"
+            aria-expanded={isDropdownOpen}
+            aria-haspopup="menu">
+            
+            <img
+              className="h-8 w-8 rounded-full object-cover border border-stone-200 bg-stone-100"
+              src="https://ui-avatars.com/api/?name=Jane+Doe&background=f5f5f4&color=1c1917"
+              alt="User avatar" />
+            
+          </button>
+
+          {isDropdownOpen ?
+          <div className="absolute right-0 mt-2 w-44 rounded-lg border border-stone-200 bg-white shadow-lg py-1 z-20" role="menu" aria-label="User menu options">
+              <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50"
+              role="menuitem"
+              onClick={() => setIsDropdownOpen(false)}>
+                Profile
+              </button>
+              <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+              role="menuitem"
+              onClick={handleSignOut}
+              disabled={isPending}>
+                {isPending ? 'Signing out...' : 'Sign out'}
+              </button>
+            </div> :
+
+          null}
+        </div>
       </div>
     </header>);
 
