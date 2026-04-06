@@ -4,6 +4,7 @@ import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { PRODUCTS, Product } from '../constants/products';
 import { MinusIcon, PlusIcon, ScanLineIcon } from 'lucide-react';
+import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 
 type StockAction = 'add' | 'remove';
 type LogAction = StockAction | 'log';
@@ -13,6 +14,8 @@ interface ScanLogItem {
   id: string;
   productName: string;
   price: string;
+  rawInput: string;
+  resolvedLookup: string;
   code: string;
   action: LogAction;
   quantity: number;
@@ -55,6 +58,53 @@ function splitBatchInput(value: string): string[] {
     .filter(Boolean);
 }
 
+function extractLastPathId(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const parseUrl = (input: string) => {
+    try {
+      return new URL(input);
+    } catch {
+      return null;
+    }
+  };
+
+  const parsed = parseUrl(raw) ?? (raw.startsWith('www.') ? parseUrl(`https://${raw}`) : null);
+  if (parsed) {
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      return decodeURIComponent(segments[segments.length - 1]);
+    }
+    return null;
+  }
+
+  const withoutQueryOrHash = raw.split(/[?#]/)[0];
+  const segments = withoutQueryOrHash.split('/').filter(Boolean);
+  if (segments.length > 1) {
+    return decodeURIComponent(segments[segments.length - 1]);
+  }
+
+  return null;
+}
+
+function resolveLookupInput(value: string): { resolvedLookup: string; rawInput: string } {
+  const rawInput = value.trim();
+  const extractedId = extractLastPathId(rawInput);
+
+  if (extractedId) {
+    return {
+      rawInput,
+      resolvedLookup: extractedId,
+    };
+  }
+
+  return {
+    rawInput,
+    resolvedLookup: rawInput,
+  };
+}
+
 function formatRelativeTime(date: Date) {
   const diffInSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
   if (diffInSeconds < 60) return 'Just now';
@@ -78,14 +128,21 @@ export function StockAdjust() {
   const [errorMessage, setErrorMessage] = useState('');
   const [scanLogs, setScanLogs] = useState<ScanLogItem[]>([]);
   const [toggleCooldown, setToggleCooldown] = useState(0);
+  const [isCameraScanning, setIsCameraScanning] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [cameraSupported, setCameraSupported] = useState(true);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isScanProcessingRef = useRef(false);
   const scanQueueRef = useRef<QueuedScan[]>([]);
   const actionRef = useRef<StockAction>('add');
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toggleCooldownRef = useRef(0);
-  // Keep a live ref to inventory so we can read current stock synchronously
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const lastCameraScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
   const inventoryRef = useRef<Product[]>(PRODUCTS);
 
   useEffect(() => {
@@ -94,6 +151,184 @@ export function StockAdjust() {
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, [mode]);
+
+  useEffect(() => {
+    const checkCameraSupport = () => {
+      console.log('🔍 Camera check starting...');
+      
+      if (typeof window === 'undefined') {
+        console.log('❌ No window object');
+        setCameraSupported(false);
+        setCameraError('Camera access requires a browser environment.');
+      } else {
+        // Simple camera support check for localhost and network
+        // Add polyfill for ALL browsers on 172.16.110.25 (desktop + mobile)
+        const isOurIP = location.hostname === '172.16.110.25';
+        
+        if (isOurIP && !navigator.mediaDevices?.getUserMedia) {
+          console.log('�️ Browser on 172.16.110.25 - adding polyfill');
+          (navigator as any).mediaDevices = (navigator as any).mediaDevices || {};
+          (navigator as any).mediaDevices.getUserMedia = (constraints: MediaStreamConstraints) => {
+            // Try webkitGetUserMedia (Safari, Chrome)
+            if ((navigator as any).webkitGetUserMedia) {
+              console.log('📱 Using webkitGetUserMedia');
+              return new Promise((resolve, reject) => {
+                (navigator as any).webkitGetUserMedia(constraints, resolve, reject);
+              });
+            }
+            // Try mozGetUserMedia (Firefox)
+            if ((navigator as any).mozGetUserMedia) {
+              console.log('🦊 Using mozGetUserMedia');
+              return new Promise((resolve, reject) => {
+                (navigator as any).mozGetUserMedia(constraints, resolve, reject);
+              });
+            }
+            // Try msGetUserMedia (Edge/IE)
+            if ((navigator as any).msGetUserMedia) {
+              console.log('🌐 Using msGetUserMedia');
+              return new Promise((resolve, reject) => {
+                (navigator as any).msGetUserMedia(constraints, resolve, reject);
+              });
+            }
+            // Try direct getUserMedia
+            if ((navigator as any).getUserMedia) {
+              console.log('📹 Using direct getUserMedia');
+              return new Promise((resolve, reject) => {
+                (navigator as any).getUserMedia(constraints, resolve, reject);
+              });
+            }
+            return Promise.reject(new Error('Camera API not available in this browser'));
+          };
+        }
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+          console.log('❌ Camera not supported in this browser');
+          setCameraSupported(false);
+          setCameraError('Camera QR scanner is not supported. Please use Chrome, Firefox, or Safari on desktop.');
+          return;
+        }
+
+        const isAllowed = 
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.hostname === '172.16.110.25' ||
+          location.hostname.includes('localhost');
+
+        if (!isAllowed) {
+          setCameraSupported(false);
+          setCameraError('Camera access only allowed on localhost and development network.');
+          return;
+        }
+
+        console.log('✅ Camera supported');
+        setCameraSupported(true);
+        setCameraError('');
+      }
+    };
+
+    checkCameraSupport();
+  }, []);
+
+  const stopCameraScanner = () => {
+    if (scannerControlsRef.current) {
+      scannerControlsRef.current.stop();
+      scannerControlsRef.current = null;
+    }
+
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setIsCameraScanning(false);
+  };
+
+  // ✅ FIXED: All permission/device errors are now caught here with specific messages.
+  const startCameraScanner = async () => {
+    if (!cameraSupported || isCameraScanning || !videoRef.current) return;
+
+    setCameraError('');
+    try {
+      if (!scannerRef.current) {
+        scannerRef.current = new BrowserMultiFormatReader(undefined, {
+          delayBetweenScanAttempts: 200,
+        });
+      }
+
+      const controls = await scannerRef.current.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result) => {
+          if (!result || toggleCooldownRef.current > 0) return;
+
+          const rawValue = result.getText().trim();
+          if (!rawValue) return;
+
+          const now = Date.now();
+          const isDuplicate =
+            rawValue === lastCameraScanRef.current.value &&
+            now - lastCameraScanRef.current.at < 1500;
+
+          if (isDuplicate) return;
+
+          lastCameraScanRef.current = { value: rawValue, at: now };
+          enqueueScanInput(rawValue);
+        }
+      );
+
+      scannerControlsRef.current = controls;
+      cameraStreamRef.current = videoRef.current.srcObject as MediaStream | null;
+      setIsCameraScanning(true);
+    } catch (err) {
+      let msg = 'Unable to start camera. ';
+
+      if (err instanceof Error) {
+        switch (err.name) {
+          case 'NotAllowedError':
+            msg += 'Permission denied — please allow camera access in your browser settings and try again.';
+            break;
+          case 'NotFoundError':
+            msg += 'No camera found on this device.';
+            break;
+          case 'NotReadableError':
+            msg += 'Camera is already in use by another application.';
+            break;
+          case 'OverconstrainedError':
+            msg += 'Camera does not meet the required constraints.';
+            break;
+          case 'SecurityError':
+            msg += 'Camera access blocked due to security restrictions.';
+            break;
+          default:
+            msg += err.message;
+        }
+      } else {
+        msg += 'An unknown error occurred.';
+      }
+
+      setCameraError(msg);
+      stopCameraScanner();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraScanner();
+      if (cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mode !== 'scan') {
+      stopCameraScanner();
+    }
   }, [mode]);
 
   const handleSetAction = (newAction: StockAction) => {
@@ -145,6 +380,8 @@ export function StockAdjust() {
 
   const appendLogEntry = (
     product: Product,
+    rawInput: string,
+    resolvedLookup: string,
     codeUsed: string,
     actionType: LogAction,
     quantity: number,
@@ -156,6 +393,8 @@ export function StockAdjust() {
         id: `${now.getTime()}-${product.id}-${Math.random().toString(36).slice(2, 8)}`,
         productName: product.name,
         price: product.price,
+        rawInput,
+        resolvedLookup,
         code: codeUsed || product.barcode || product.sku || product.id,
         action: actionType,
         quantity,
@@ -170,15 +409,15 @@ export function StockAdjust() {
     product: Product,
     qty: number,
     codeUsed?: string,
-    actionToApply: StockAction = actionRef.current
+    actionToApply: StockAction = actionRef.current,
+    rawInput?: string,
+    resolvedLookup?: string
   ) => {
     const safeQty = Math.max(1, Math.floor(qty));
 
-    // ✅ Read current stock SYNCHRONOUSLY from the ref, not from stale closure
     const currentItem = inventoryRef.current.find((i) => i.id === product.id);
     const currentStock = currentItem?.stock ?? product.stock;
 
-    // ✅ Validate and compute result synchronously BEFORE any setState call
     if (actionToApply === 'remove' && safeQty > currentStock) {
       setErrorMessage(`Cannot remove ${safeQty}. Available stock is ${currentStock}.`);
       setFeedback('');
@@ -188,7 +427,6 @@ export function StockAdjust() {
     const nextStock = actionToApply === 'add' ? currentStock + safeQty : currentStock - safeQty;
     const nextStatus = getStatusByStock(nextStock);
 
-    // ✅ Now update state with the already-computed values
     setInventory((prev) =>
       prev.map((item) =>
         item.id === product.id
@@ -197,7 +435,6 @@ export function StockAdjust() {
       )
     );
 
-    // Also update inventoryRef immediately so next scan reads correct stock
     inventoryRef.current = inventoryRef.current.map((item) =>
       item.id === product.id ? { ...item, stock: nextStock, status: nextStatus } : item
     );
@@ -209,7 +446,15 @@ export function StockAdjust() {
     const actionLabel = actionToApply === 'add' ? 'Added' : 'Removed';
     setFeedback(`${actionLabel} ${safeQty} unit${safeQty > 1 ? 's' : ''} for ${product.name}. New stock: ${nextStock}.`);
     setErrorMessage('');
-    appendLogEntry(product, codeUsed || '', actionToApply, safeQty, nextStock);
+    appendLogEntry(
+      product,
+      rawInput || codeUsed || product.id,
+      resolvedLookup || codeUsed || product.id,
+      codeUsed || '',
+      actionToApply,
+      safeQty,
+      nextStock
+    );
     return true;
   };
 
@@ -217,15 +462,16 @@ export function StockAdjust() {
     while (scanQueueRef.current.length > 0) {
       const nextScan = scanQueueRef.current.shift();
       if (!nextScan) break;
-      const matched = findProduct(nextScan.value);
+      const { rawInput, resolvedLookup } = resolveLookupInput(nextScan.value);
+      const matched = findProduct(resolvedLookup);
       if (!matched) {
         setSelectedProduct(null);
-        setErrorMessage(`No product found for code: ${nextScan.value}`);
+        setErrorMessage(`No product found for scan: ${rawInput}`);
         setFeedback('');
         continue;
       }
       setSelectedProduct(matched);
-      applyStockChange(matched, 1, nextScan.value, actionRef.current);
+      applyStockChange(matched, 1, resolvedLookup, actionRef.current, rawInput, resolvedLookup);
     }
     isScanProcessingRef.current = false;
     inputRef.current?.focus();
@@ -280,7 +526,14 @@ export function StockAdjust() {
       return;
     }
     setSelectedProduct(matched);
-    const changed = applyStockChange(matched, manualQuantity, manualValue.trim(), actionRef.current);
+    const changed = applyStockChange(
+      matched,
+      manualQuantity,
+      manualValue.trim(),
+      actionRef.current,
+      manualValue.trim(),
+      manualValue.trim()
+    );
     if (changed) {
       setManualValue('');
       setManualQuantity(1);
@@ -334,6 +587,46 @@ export function StockAdjust() {
 
               {mode === 'scan' ? (
                 <div className="space-y-3">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-stone-700">
+                      Camera QR Scanner
+                    </label>
+                    <div className="rounded-lg border border-stone-200 bg-stone-50 p-2">
+                      <video
+                        ref={videoRef}
+                        className="w-full h-44 rounded-md bg-black object-cover"
+                        playsInline
+                        muted
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void startCameraScanner()}
+                        disabled={!cameraSupported || isCameraScanning}
+                        className="h-10 px-3 rounded-md bg-slate-900 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Start Camera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCameraScanner}
+                        disabled={!isCameraScanning}
+                        className="h-10 px-3 rounded-md border border-stone-300 text-stone-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Stop Camera
+                      </button>
+                    </div>
+                    <p className="text-xs text-stone-500">
+                      Camera reads QR links and uses the last path segment as the product ID.
+                    </p>
+                    {cameraError && (
+                      <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        {cameraError}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label htmlFor="scanInput" className="block text-sm font-medium text-stone-700 mb-1.5">
                       Scan Barcode / SKU / Product ID
@@ -508,7 +801,7 @@ export function StockAdjust() {
                   <table className="w-full text-sm">
                     <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 sticky top-0">
                       <tr>
-                        <th className="text-left px-4 py-3 font-medium">SKU / Barcode</th>
+                        <th className="text-left px-4 py-3 font-medium">Scanned Input</th>
                         <th className="text-left px-4 py-3 font-medium">Product Details</th>
                         <th className="text-left px-4 py-3 font-medium">Action</th>
                         <th className="text-left px-4 py-3 font-medium">New Qty</th>
@@ -520,7 +813,8 @@ export function StockAdjust() {
                       {scanLogs.map((log) => (
                         <tr key={log.id} className="border-b border-stone-100 last:border-b-0 hover:bg-stone-50/50 transition-colors">
                           <td className="px-4 py-4 text-stone-600 align-top">
-                            B: {log.code}
+                            <div className="font-medium text-stone-800 break-all">{log.rawInput}</div>
+                            <div className="text-xs text-stone-500 mt-1">Resolved ID: {log.resolvedLookup}</div>
                           </td>
                           <td className="px-4 py-4 align-top">
                             <div className="text-stone-900 font-medium">Title: {log.productName}</div>

@@ -37,7 +37,7 @@ export default function Page() {
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-stone-50 font-sans selection:bg-amber-200 selection:text-amber-900">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
-      <div className="flex-1 min-w-0 md:ml-64">{renderPage()}</div>
+      <div className="flex-1 min-w-0 pb-20 md:pb-0 md:ml-64">{renderPage()}</div>
     </div>
   );
 }
