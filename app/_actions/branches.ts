@@ -62,10 +62,39 @@ type FetchBranchesResult =
 const BRANCHES_API_URL = "http://localhost:3001/api/branches";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 const BRANCHES_CACHE_TTL_SECONDS = 300;
+const EQUIPMENT_CACHE_KEY = "equipment:all:v1";
+const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
+const EQUIPMENT_CACHE_TTL_SECONDS = 300;
+const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
 	result: T;
 	error?: string;
+};
+
+type EquipmentModelCacheItem = {
+	id: string;
+	name: string;
+	description: string;
+	sku: string | null;
+	type: string;
+	price: string | null;
+	createdBy: string;
+	createdAt: string;
+	unitCount: number;
+};
+
+type EquipmentCacheItem = {
+	id: string;
+	qrCode: string;
+	serialNumber: string | null;
+	modelName: string;
+	modelType: string;
+	status: "AVAILABLE" | "MAINTENANCE" | "RETIRED" | "LOST";
+	areaName: string;
+	branchName: string;
+	createdBy: string;
+	createdAt: string;
 };
 
 async function runRedisCommand<T>(
@@ -93,6 +122,192 @@ async function runRedisCommand<T>(
 	}
 
 	return payload;
+}
+
+function formatDisplayDate(date: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "2-digit",
+		year: "numeric",
+	}).format(date);
+}
+
+async function warmEquipmentModelsCacheIfMissing(
+	redisUrl: string,
+	redisToken: string,
+	traceId: string,
+): Promise<void> {
+	const existingModelsCache = await runRedisCommand<string | null>(redisUrl, redisToken, [
+		"GET",
+		EQUIPMENT_MODELS_CACHE_KEY,
+	]);
+
+	if (existingModelsCache.result) {
+		console.log("[Branches Action] Dependent cache already present", {
+			traceId,
+			key: EQUIPMENT_MODELS_CACHE_KEY,
+		});
+		return;
+	}
+
+	const models = await prisma.equipmentModel.findMany({
+		where: {
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			name: true,
+			description: true,
+			sku: true,
+			type: true,
+			price: true,
+			createdAt: true,
+			createdBy: {
+				select: {
+					name: true,
+				},
+			},
+			equipment: {
+				where: {
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+				},
+			},
+		},
+		orderBy: {
+			createdAt: "desc",
+		},
+	});
+
+	const formattedModels: EquipmentModelCacheItem[] = models.map((model) => ({
+		id: model.id,
+		name: model.name,
+		description: model.description ?? "",
+		sku: model.sku,
+		type: model.type,
+		price: model.price ? model.price.toString() : null,
+		createdBy: model.createdBy.name,
+		createdAt: formatDisplayDate(model.createdAt),
+		unitCount: model.equipment.length,
+	}));
+
+	await runRedisCommand<string>(redisUrl, redisToken, [
+		"SET",
+		EQUIPMENT_MODELS_CACHE_KEY,
+		JSON.stringify(formattedModels),
+		"EX",
+		EQUIPMENT_MODELS_CACHE_TTL_SECONDS,
+	]);
+
+	console.log("[Branches Action] Dependent cache warmed", {
+		traceId,
+		key: EQUIPMENT_MODELS_CACHE_KEY,
+		count: formattedModels.length,
+		ttlSeconds: EQUIPMENT_MODELS_CACHE_TTL_SECONDS,
+	});
+}
+
+async function warmEquipmentCacheIfMissing(
+	redisUrl: string,
+	redisToken: string,
+	traceId: string,
+	branches: BranchItem[],
+): Promise<void> {
+	const existingEquipmentCache = await runRedisCommand<string | null>(redisUrl, redisToken, [
+		"GET",
+		EQUIPMENT_CACHE_KEY,
+	]);
+
+	if (existingEquipmentCache.result) {
+		console.log("[Branches Action] Dependent cache already present", {
+			traceId,
+			key: EQUIPMENT_CACHE_KEY,
+		});
+		return;
+	}
+
+	const areaLookup = new Map(
+		branches.flatMap((branch) =>
+			(branch.areas ?? []).map((area) => [area.id, { areaName: area.name, branchName: branch.name }]),
+		),
+	);
+
+	const equipment = await prisma.equipment.findMany({
+		where: {
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			qrCode: true,
+			serialNumber: true,
+			status: true,
+			createdAt: true,
+			equipmentModel: {
+				select: {
+					name: true,
+					type: true,
+				},
+			},
+			areaId: true,
+			createdBy: {
+				select: {
+					name: true,
+				},
+			},
+		},
+		orderBy: {
+			createdAt: "desc",
+		},
+	});
+
+	const formattedEquipment: EquipmentCacheItem[] = equipment.map((item) => ({
+		id: item.id,
+		qrCode: item.qrCode,
+		serialNumber: item.serialNumber,
+		modelName: item.equipmentModel.name,
+		modelType: item.equipmentModel.type,
+		status: item.status,
+		areaName: areaLookup.get(item.areaId)?.areaName ?? item.areaId,
+		branchName: areaLookup.get(item.areaId)?.branchName ?? "Unknown branch",
+		createdBy: item.createdBy.name,
+		createdAt: formatDisplayDate(item.createdAt),
+	}));
+
+	await runRedisCommand<string>(redisUrl, redisToken, [
+		"SET",
+		EQUIPMENT_CACHE_KEY,
+		JSON.stringify(formattedEquipment),
+		"EX",
+		EQUIPMENT_CACHE_TTL_SECONDS,
+	]);
+
+	console.log("[Branches Action] Dependent cache warmed", {
+		traceId,
+		key: EQUIPMENT_CACHE_KEY,
+		count: formattedEquipment.length,
+		ttlSeconds: EQUIPMENT_CACHE_TTL_SECONDS,
+	});
+}
+
+async function warmDependentCachesFromBranches(
+	redisUrl: string,
+	redisToken: string,
+	traceId: string,
+	branches: BranchItem[],
+): Promise<void> {
+	try {
+		await Promise.all([
+			warmEquipmentModelsCacheIfMissing(redisUrl, redisToken, traceId),
+			warmEquipmentCacheIfMissing(redisUrl, redisToken, traceId, branches),
+		]);
+	} catch (error) {
+		console.warn("[Branches Action] Dependent cache warmup failed", {
+			traceId,
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+	}
 }
 
 export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
@@ -127,6 +342,14 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 
 				if (cacheResponse.result) {
 					const cachedBranches = JSON.parse(cacheResponse.result) as BranchItem[];
+
+					await warmDependentCachesFromBranches(
+						redisUrl,
+						redisToken,
+						traceId,
+						cachedBranches,
+					);
+
 					console.log("[Branches Action] Cache hit", {
 						traceId,
 						key: BRANCHES_CACHE_KEY,
@@ -294,6 +517,8 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 						cacheWriteError instanceof Error ? cacheWriteError.message : "Unknown cache write error",
 				});
 			}
+
+			await warmDependentCachesFromBranches(redisUrl, redisToken, traceId, branches);
 		}
 
 		return {
