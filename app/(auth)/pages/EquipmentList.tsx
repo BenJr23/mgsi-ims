@@ -280,7 +280,7 @@ export function EquipmentList() {
     try {
       const QRCodeLib = await import('qrcode');
       qrDataUrl = await QRCodeLib.toDataURL(item.qrCode, {
-        width: 220,
+        width: 340,
         margin: 1,
         errorCorrectionLevel: 'H',
       });
@@ -354,7 +354,7 @@ export function EquipmentList() {
           }
           .label {
             width: 2.5in;
-            min-height: 2.1in;
+            min-height: 2.75in;
             border: 1px solid #cbd5e1;
             background: #ffffff;
             border-radius: 10px;
@@ -376,8 +376,8 @@ export function EquipmentList() {
             align-items: center;
           }
           .qr-image {
-            width: 145px;
-            height: 145px;
+            width: 220px;
+            height: 220px;
           }
           .logo {
             width: 0.88in;
