@@ -46,6 +46,31 @@ const EQUIPMENT_CACHE_KEY = "equipment:all:v1";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
 const EQUIPMENT_CACHE_TTL_SECONDS = 300;
+const EQUIPMENT_ROUTE_PREFIX = "/equipment";
+
+function getAppBaseUrl(): string {
+	const configuredUrl =
+		process.env.NEXT_PUBLIC_QR_BASE_URL?.trim() ||
+		process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+		process.env.VERCEL_URL?.trim() ||
+		"http://localhost:3000";
+
+	if (/^https?:\/\//i.test(configuredUrl)) {
+		return configuredUrl.replace(/\/$/, "");
+	}
+
+	return `https://${configuredUrl.replace(/\/$/, "")}`;
+}
+
+function generateEquipmentSku(): string {
+	const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+	const timestamp = Date.now().toString(36).toUpperCase();
+	return `EQ-${timestamp}-${randomSuffix}`;
+}
+
+function buildEquipmentQrCodeUrl(sku: string): string {
+	return `${getAppBaseUrl()}${EQUIPMENT_ROUTE_PREFIX}/${encodeURIComponent(sku)}`;
+}
 
 type RedisCommandResponse<T> = {
 	result: T;
@@ -265,8 +290,6 @@ function isValidEquipmentStatus(status: string): status is EquipmentStatus {
 }
 
 export async function createEquipmentAction(input: {
-	qrCode: string;
-	sku: string;
 	equipmentModelId: string;
 	status: EquipmentStatus;
 	areaId: string; // areaId is now a plain string
@@ -286,18 +309,11 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
-		const normalizedQrCode = input.qrCode?.trim();
-		const normalizedSku = input.sku?.trim() || null;
 		const normalizedEquipmentModelId = input.equipmentModelId?.trim();
 		const normalizedAreaId = input.areaId?.trim();
 		const normalizedStatus = input.status?.trim();
-
-		if (!normalizedQrCode) {
-			return {
-				ok: false,
-				message: "QR code is required.",
-			};
-		}
+		const generatedSku = generateEquipmentSku();
+		const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
 
 		if (!normalizedEquipmentModelId) {
 			return {
@@ -342,8 +358,8 @@ export async function createEquipmentAction(input: {
 
 		const equipment = await prisma.equipment.create({
 			data: {
-				qrCode: normalizedQrCode,
-				sku: normalizedSku,
+				qrCode: generatedQrCode,
+				sku: generatedSku,
 				equipmentModelId: normalizedEquipmentModelId,
 				status: normalizedStatus,
 				areaId: normalizedAreaId, // areaId is now stored as a plain string
@@ -352,12 +368,14 @@ export async function createEquipmentAction(input: {
 			select: {
 				id: true,
 				qrCode: true,
+				sku: true,
 			},
 		});
 
 		console.log("[Equipment Action] Equipment created successfully", {
 			traceId,
 			equipmentId: equipment.id,
+			sku: equipment.sku,
 			qrCode: equipment.qrCode,
 		});
 

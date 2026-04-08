@@ -66,6 +66,15 @@ function formatStatus(status: EquipmentStatus) {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
+function formatEquipmentQrLink(qrCode: string): string {
+  try {
+    const parsedUrl = new URL(qrCode);
+    return `${parsedUrl.pathname}${parsedUrl.search}`;
+  } catch {
+    return qrCode;
+  }
+}
+
 export function EquipmentList() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,8 +235,6 @@ export function EquipmentList() {
   }, [activeTab, equipment, searchQuery]);
 
   const handleRegisterEquipmentSubmit = async (data: {
-    qrCode: string;
-    sku: string;
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
@@ -528,7 +535,7 @@ export function EquipmentList() {
               <thead className="bg-stone-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    QR Code
+                    QR Link
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                     Model
@@ -557,12 +564,16 @@ export function EquipmentList() {
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/80 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <QrCodeIcon className="w-4 h-4 text-stone-400" />
-                          <span className="text-sm font-mono font-medium text-stone-900">
-                            {item.qrCode}
-                          </span>
-                        </div>
+                        <a
+                          href={item.qrCode}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
+                          title={item.qrCode}
+                        >
+                          <QrCodeIcon className="w-4 h-4 text-blue-600" />
+                          {formatEquipmentQrLink(item.qrCode)}
+                        </a>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
