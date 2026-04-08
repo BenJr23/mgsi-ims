@@ -55,7 +55,7 @@ export async function signInWithEmailAction(input: {
 
   try {
     // Always validate credentials against external API first.
-    const externalApiUrl = "http://localhost:3001/api/users/integrated-login";
+    const externalApiUrl = "https://mgsi-bms-superadmin.vercel.app/api/users/integrated-login";
     const bmsSecretKey = process.env.BMS_SECRET_KEY;
 
     if (!bmsSecretKey) {

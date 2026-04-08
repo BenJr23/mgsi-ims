@@ -59,7 +59,7 @@ type FetchBranchesResult =
 			message: string;
 		};
 
-const BRANCHES_API_URL = "http://localhost:3001/api/branches";
+const BRANCHES_API_URL = "https://mgsi-bms-superadmin.vercel.app/api/branches";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 const BRANCHES_CACHE_TTL_SECONDS = 300;
 const EQUIPMENT_CACHE_KEY = "equipment:all:v1";
