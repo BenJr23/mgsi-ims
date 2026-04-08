@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { SearchIcon, BellIcon } from 'lucide-react';
+import Link from 'next/link';
 
 import { signOutAction } from '@/app/_actions/auth';
 import { useRouter } from 'next/navigation';
@@ -95,13 +96,13 @@ export function TopBar() {
 
           {isDropdownOpen ?
           <div className="absolute right-0 mt-2 w-44 rounded-lg border border-stone-200 bg-white shadow-lg py-1 z-20" role="menu" aria-label="User menu options">
-              <button
-              type="button"
-              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50"
+              <Link
+              href="/profile"
+              className="block w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50"
               role="menuitem"
               onClick={() => setIsDropdownOpen(false)}>
                 Profile
-              </button>
+              </Link>
               <button
               type="button"
               className="w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-60"
