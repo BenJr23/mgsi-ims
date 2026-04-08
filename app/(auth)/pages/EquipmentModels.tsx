@@ -118,7 +118,6 @@ export function EquipmentModels() {
   const handleAddModelSubmit = async (data: {
     name: string;
     description: string;
-    sku: string;
     type: EquipmentType;
     price: string;
   }) => {
@@ -299,12 +298,6 @@ export function EquipmentModels() {
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                     
-                    SKU
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
                     Type
                   </th>
                   <th
@@ -352,11 +345,6 @@ export function EquipmentModels() {
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-stone-500 font-mono">
-                          {model.sku || '—'}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span

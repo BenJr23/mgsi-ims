@@ -143,7 +143,7 @@ export function EquipmentList() {
     () =>
       models.map((model) => ({
         id: model.id,
-        name: model.sku ? `${model.name} (${model.sku})` : model.name,
+        name: model.name,
       })),
     [models],
   );
@@ -212,7 +212,7 @@ export function EquipmentList() {
 
       return [
         item.qrCode,
-        item.serialNumber ?? '',
+        item.sku ?? '',
         item.modelName,
         item.modelType,
         item.areaName,
@@ -227,7 +227,7 @@ export function EquipmentList() {
 
   const handleRegisterEquipmentSubmit = async (data: {
     qrCode: string;
-    serialNumber: string;
+    sku: string;
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
@@ -513,7 +513,7 @@ export function EquipmentList() {
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by QR, serial, model..."
+                  placeholder="Search by QR, SKU, model..."
                   className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
                 />
               </div>
@@ -534,7 +534,7 @@ export function EquipmentList() {
                     Model
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    Serial No.
+                    SKU
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                     Status
@@ -572,7 +572,7 @@ export function EquipmentList() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-stone-500 font-mono">
-                          {item.serialNumber || '—'}
+                          {item.sku || '—'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

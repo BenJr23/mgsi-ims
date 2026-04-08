@@ -9,7 +9,7 @@ interface RegisterEquipmentModalProps {
   onClose: () => void;
   onSubmit: (data: {
     qrCode: string;
-    serialNumber: string;
+    sku: string;
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
@@ -61,7 +61,7 @@ export function RegisterEquipmentModal({
 
     const result = await onSubmit({
       qrCode: formData.get('qrCode') as string,
-      serialNumber: formData.get('serialNumber') as string,
+      sku: formData.get('sku') as string,
       equipmentModelId: formData.get('equipmentModelId') as string,
       status: formData.get('status') as EquipmentStatus,
       areaId: formData.get('areaId') as string,
@@ -175,7 +175,7 @@ export function RegisterEquipmentModal({
                   </select>
                 </div>
 
-                {/* QR Code + Serial Number row */}
+                {/* QR Code + SKU row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label
@@ -196,16 +196,17 @@ export function RegisterEquipmentModal({
 
                   <div className="space-y-2">
                     <label
-                    htmlFor="equip-serial"
+                    htmlFor="equip-sku"
                     className="block text-sm font-medium text-stone-700">
                     
-                      Serial Number
+                      SKU
                     </label>
                     <input
                     type="text"
-                    id="equip-serial"
-                    name="serialNumber"
-                    placeholder="e.g. SN-2026-A011"
+                    id="equip-sku"
+                    name="sku"
+                    required
+                    placeholder="e.g. EQ-1011"
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder-stone-400" />
                   
                   </div>

@@ -13,7 +13,6 @@ interface AddModelModalProps {
   onSubmit: (data: {
     name: string;
     description: string;
-    sku: string;
     type: EquipmentType;
     price: string;
   }) => Promise<void> | void;
@@ -54,7 +53,6 @@ export function AddModelModal({
     void onSubmit({
       name: formData.get('name') as string,
       description: formData.get('description') as string,
-      sku: formData.get('sku') as string,
       type: formData.get('type') as EquipmentType,
       price: formData.get('price') as string
     });
@@ -169,28 +167,7 @@ export function AddModelModal({
                 
                 </div>
 
-                {/* SKU + Type row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label
-                    htmlFor="model-sku"
-                    className="block text-sm font-medium text-stone-700">
-                    
-                      SKU
-                    </label>
-                    <input
-                    type="text"
-                    id="model-sku"
-                    name="sku"
-                    placeholder="e.g. MOD-1011"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder-stone-400" />
-                  
-                    <p className="text-xs text-stone-400">
-                      Optional unique identifier
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     <label
                     htmlFor="model-type"
                     className="block text-sm font-medium text-stone-700">
@@ -212,7 +189,6 @@ export function AddModelModal({
                         </option>
                     )}
                     </select>
-                  </div>
                 </div>
 
                 {/* Price */}

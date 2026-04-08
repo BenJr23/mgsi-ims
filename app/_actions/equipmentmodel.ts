@@ -26,7 +26,6 @@ export type EquipmentModelListItem = {
 	id: string;
 	name: string;
 	description: string;
-	sku: string | null;
 	type: EquipmentType;
 	price: string | null;
 	createdBy: string;
@@ -156,7 +155,6 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 				id: true,
 				name: true,
 				description: true,
-				sku: true,
 				type: true,
 				price: true,
 				createdAt: true,
@@ -183,7 +181,6 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			id: model.id,
 			name: model.name,
 			description: model.description ?? "",
-			sku: model.sku,
 			type: model.type,
 			price: model.price ? model.price.toString() : null,
 			createdBy: model.createdBy.name,
@@ -244,7 +241,6 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 export async function createEquipmentModelAction(input: {
 	name: string;
 	description: string;
-	sku: string;
 	type: EquipmentType;
 	price: string;
 }): Promise<CreateEquipmentModelResult> {
@@ -265,7 +261,6 @@ export async function createEquipmentModelAction(input: {
 
 		const normalizedName = input.name?.trim();
 		const normalizedDescription = input.description?.trim() || null;
-		const normalizedSku = input.sku?.trim() || null;
 		const normalizedPrice = input.price?.trim();
 
 		if (!normalizedName) {
@@ -297,7 +292,6 @@ export async function createEquipmentModelAction(input: {
 			data: {
 				name: normalizedName,
 				description: normalizedDescription,
-				sku: normalizedSku,
 				type: input.type,
 				price: parsedPrice,
 				createdById: session.user.id,
@@ -305,7 +299,6 @@ export async function createEquipmentModelAction(input: {
 			select: {
 				id: true,
 				name: true,
-				sku: true,
 			},
 		});
 
@@ -313,7 +306,6 @@ export async function createEquipmentModelAction(input: {
 			traceId,
 			equipmentModelId: equipmentModel.id,
 			name: equipmentModel.name,
-			sku: equipmentModel.sku,
 		});
 
 		await invalidateEquipmentModelsCache();
@@ -330,13 +322,6 @@ export async function createEquipmentModelAction(input: {
 			traceId,
 			error: errorMessage,
 		});
-
-		if (errorMessage.includes("Unique constraint failed")) {
-			return {
-				ok: false,
-				message: "SKU already exists. Please use a different SKU.",
-			};
-		}
 
 		return {
 			ok: false,

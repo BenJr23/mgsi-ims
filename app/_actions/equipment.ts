@@ -22,7 +22,7 @@ type CreateEquipmentResult =
 export type EquipmentListItem = {
 	id: string;
 	qrCode: string;
-	serialNumber: string | null;
+	sku: string | null;
 	modelName: string;
 	modelType: string;
 	status: EquipmentStatus;
@@ -170,7 +170,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			select: {
 				id: true,
 				qrCode: true,
-				serialNumber: true,
+				sku: true,
 				status: true,
 				createdAt: true,
 				equipmentModel: {
@@ -200,7 +200,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 		const formattedEquipment: EquipmentListItem[] = equipment.map((item) => ({
 			id: item.id,
 			qrCode: item.qrCode,
-			serialNumber: item.serialNumber,
+			sku: item.sku,
 			modelName: item.equipmentModel.name,
 			modelType: item.equipmentModel.type,
 			status: item.status,
@@ -266,7 +266,7 @@ function isValidEquipmentStatus(status: string): status is EquipmentStatus {
 
 export async function createEquipmentAction(input: {
 	qrCode: string;
-	serialNumber: string | null;
+	sku: string;
 	equipmentModelId: string;
 	status: EquipmentStatus;
 	areaId: string; // areaId is now a plain string
@@ -287,7 +287,7 @@ export async function createEquipmentAction(input: {
 		}
 
 		const normalizedQrCode = input.qrCode?.trim();
-		const normalizedSerialNumber = input.serialNumber?.trim() || null;
+		const normalizedSku = input.sku?.trim() || null;
 		const normalizedEquipmentModelId = input.equipmentModelId?.trim();
 		const normalizedAreaId = input.areaId?.trim();
 		const normalizedStatus = input.status?.trim();
@@ -343,7 +343,7 @@ export async function createEquipmentAction(input: {
 		const equipment = await prisma.equipment.create({
 			data: {
 				qrCode: normalizedQrCode,
-				serialNumber: normalizedSerialNumber,
+				sku: normalizedSku,
 				equipmentModelId: normalizedEquipmentModelId,
 				status: normalizedStatus,
 				areaId: normalizedAreaId, // areaId is now stored as a plain string
@@ -379,7 +379,7 @@ export async function createEquipmentAction(input: {
 		if (errorMessage.includes("Unique constraint failed")) {
 			return {
 				ok: false,
-				message: "QR code or serial number already exists. Please use a different value.",
+				message: "QR code already exists. Please use a different value.",
 			};
 		}
 
