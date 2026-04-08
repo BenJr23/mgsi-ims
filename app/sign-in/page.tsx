@@ -2,7 +2,7 @@
 
 import { signInWithEmailAction } from "@/app/_actions/auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 
 type LoginFormData = {
   email: string;
@@ -15,6 +15,29 @@ const initialLoginData: LoginFormData = {
 };
 
 export default function LogInPage() {
+  return (
+    <Suspense fallback={<SignInPageFallback />}>
+      <SignInPageContent />
+    </Suspense>
+  );
+}
+
+function SignInPageFallback() {
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 px-4 py-10 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(59,130,246,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(20,184,166,0.18),transparent_28%),radial-gradient(circle_at_60%_90%,rgba(245,158,11,0.2),transparent_32%)]" />
+      <section className="relative z-10 w-full max-w-md rounded-3xl border border-slate-200/80 bg-white/90 p-8 shadow-[0_20px_50px_-20px_rgba(15,23,42,0.45)] backdrop-blur-sm sm:p-10">
+        <div className="mb-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-700">MGSI IMS</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-900">Welcome back</h1>
+          <p className="mt-2 text-sm text-slate-600">Loading sign in form...</p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function SignInPageContent() {
   const [formData, setFormData] = useState<LoginFormData>(initialLoginData);
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

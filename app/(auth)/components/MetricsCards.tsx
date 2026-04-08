@@ -1,11 +1,11 @@
-import React, { Children } from 'react';
+import React from 'react';
 import {
   PackageIcon,
   AlertTriangleIcon,
   DollarSignIcon,
   ClipboardListIcon } from
 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 const METRICS = [
 {
   id: 1,
@@ -40,7 +40,7 @@ const METRICS = [
   iconColor: 'text-blue-600'
 }];
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {
     opacity: 0
   },
@@ -51,7 +51,7 @@ const containerVariants = {
     }
   }
 };
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: {
     opacity: 0,
     y: 20

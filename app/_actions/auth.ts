@@ -11,6 +11,8 @@ type AuthResult = {
   message: string;
 };
 
+type LocalRole = "ADMIN" | "MANAGER" | "USER";
+
 type ExternalUser = {
   id: string;
   email: string;
@@ -34,8 +36,8 @@ type ExternalLoginError = {
   error?: string;
 };
 
-function mapExternalRoleToInternal(externalRole: ExternalUser["role"]): "ADMIN" | "MANAGER" | "USER" | null {
-  const roleMap: Record<ExternalUser["role"], "ADMIN" | "MANAGER" | "USER" | null> = {
+function mapExternalRoleToInternal(externalRole: ExternalUser["role"]): LocalRole | null {
+  const roleMap: Record<ExternalUser["role"], LocalRole | null> = {
     CLIENT: null,
     SUPERADMIN: "ADMIN",
     ADMIN: "MANAGER",
@@ -55,7 +57,7 @@ export async function signInWithEmailAction(input: {
 
   try {
     // Always validate credentials against external API first.
-    const externalApiUrl = "http://localhost:3001/api/users/integrated-login";
+    const externalApiUrl = "https://mgsi-bms-superadmin.vercel.app/api/users/integrated-login";
     const bmsSecretKey = process.env.BMS_SECRET_KEY;
 
     if (!bmsSecretKey) {
@@ -88,38 +90,10 @@ export async function signInWithEmailAction(input: {
     }
 
     const externalUser = externalData.user;
-    const mappedRole = mapExternalRoleToInternal(externalUser.role);
-
-    if (mappedRole === null) {
-      return {
-        ok: false,
-        message: invalidCredentialsMessage,
-      };
-    }
-
-    const fetchedUser = {
-      id: externalUser.id,
-      email: externalUser.email,
-      name: externalUser.name,
-      phoneNumber: externalUser.phoneNumber,
-      role: mappedRole,
-      emailVerified: externalUser.passwordVerified,
-    };
-
-    // Defensive guard: never provision local accounts for CLIENT/invalid roles.
-    if (
-      fetchedUser.role === null ||
-      !["ADMIN", "MANAGER", "USER"].includes(fetchedUser.role)
-    ) {
-      return {
-        ok: false,
-        message: invalidCredentialsMessage,
-      };
-    }
 
     // Ensure local user + credential account exist and are aligned with external source.
     const localUser = await prisma.user.findUnique({
-      where: { email: fetchedUser.email },
+      where: { email },
       include: {
         accounts: {
           where: { providerId: credentialProviderId },
@@ -131,6 +105,27 @@ export async function signInWithEmailAction(input: {
         },
       },
     });
+
+    const mappedRole = mapExternalRoleToInternal(externalUser.role);
+  const effectiveRole: LocalRole | null = localUser?.role ?? mappedRole;
+
+    // Existing users always keep their local role.
+    // New users are provisioned only if the external role maps to an allowed local role.
+    if (!effectiveRole) {
+      return {
+        ok: false,
+        message: invalidCredentialsMessage,
+      };
+    }
+
+    const fetchedUser = {
+      id: externalUser.id,
+      email: externalUser.email,
+      name: externalUser.name,
+      phoneNumber: externalUser.phoneNumber,
+      role: effectiveRole,
+      emailVerified: externalUser.passwordVerified,
+    };
 
     try {
       const passwordHash = await hashPassword(input.password);
