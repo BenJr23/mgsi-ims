@@ -282,12 +282,15 @@ export async function createEquipmentModelAction(input: {
 			};
 		}
 
-		const parsedPrice = normalizedPrice ? Number(normalizedPrice) : null;
-		if (normalizedPrice && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
-			return {
-				ok: false,
-				message: "Price must be a valid non-negative number.",
-			};
+		let parsedPrice: number | null = null;
+		if (normalizedPrice) {
+			parsedPrice = Number(normalizedPrice);
+			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+				return {
+					ok: false,
+					message: "Price must be a valid non-negative number.",
+				};
+			}
 		}
 
 		const equipmentModel = await prisma.equipmentModel.create({
