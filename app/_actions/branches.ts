@@ -76,7 +76,6 @@ type EquipmentModelCacheItem = {
 	id: string;
 	name: string;
 	description: string;
-	sku: string | null;
 	type: string;
 	price: string | null;
 	createdBy: string;
@@ -87,7 +86,7 @@ type EquipmentModelCacheItem = {
 type EquipmentCacheItem = {
 	id: string;
 	qrCode: string;
-	serialNumber: string | null;
+	sku: string | null;
 	modelName: string;
 	modelType: string;
 	status: "AVAILABLE" | "MAINTENANCE" | "RETIRED" | "LOST";
@@ -158,7 +157,6 @@ async function warmEquipmentModelsCacheIfMissing(
 			id: true,
 			name: true,
 			description: true,
-			sku: true,
 			type: true,
 			price: true,
 			createdAt: true,
@@ -185,7 +183,6 @@ async function warmEquipmentModelsCacheIfMissing(
 		id: model.id,
 		name: model.name,
 		description: model.description ?? "",
-		sku: model.sku,
 		type: model.type,
 		price: model.price ? model.price.toString() : null,
 		createdBy: model.createdBy.name,
@@ -241,7 +238,7 @@ async function warmEquipmentCacheIfMissing(
 		select: {
 			id: true,
 			qrCode: true,
-			serialNumber: true,
+			sku: true,
 			status: true,
 			createdAt: true,
 			equipmentModel: {
@@ -265,7 +262,7 @@ async function warmEquipmentCacheIfMissing(
 	const formattedEquipment: EquipmentCacheItem[] = equipment.map((item) => ({
 		id: item.id,
 		qrCode: item.qrCode,
-		serialNumber: item.serialNumber,
+		sku: item.sku,
 		modelName: item.equipmentModel.name,
 		modelType: item.equipmentModel.type,
 		status: item.status,
