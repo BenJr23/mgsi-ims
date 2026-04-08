@@ -7,8 +7,15 @@ import {
   BarChart3Icon,
   Building2Icon,
   UsersIcon,
-  ActivityIcon } from
-'lucide-react';
+  ActivityIcon,
+  type LucideIcon,
+} from 'lucide-react';
+
+type NavItem = {
+  name: string;
+  icon: LucideIcon;
+};
+
 const MAIN_NAV_ITEMS = [
 {
   name: 'Dashboard',
@@ -29,7 +36,7 @@ const MAIN_NAV_ITEMS = [
 {
   name: 'Reports',
   icon: BarChart3Icon
-}];
+}] satisfies NavItem[];
 
 const ADMIN_NAV_ITEMS = [
 {
@@ -39,7 +46,9 @@ const ADMIN_NAV_ITEMS = [
 {
   name: 'User Management',
   icon: UsersIcon
-}];
+}] satisfies NavItem[];
+
+const NAV_ITEMS = [...MAIN_NAV_ITEMS, ...ADMIN_NAV_ITEMS];
 
 interface SidebarProps {
   currentPage: string;
@@ -47,51 +56,46 @@ interface SidebarProps {
 }
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   return (
-    <>
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex-col z-20">
-        {/* Logo Area */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-800">
-          <div className="flex items-center gap-2 text-white">
-            <div className="bg-amber-500 p-1.5 rounded-md">
-              <ActivityIcon
-                className="w-5 h-5 text-slate-900"
-                aria-hidden="true" />
-
-            </div>
-            <span className="text-lg font-semibold tracking-wide">
-              StockPulse
-            </span>
+    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex-col z-20">
+      {/* Logo Area */}
+      <div className="h-16 flex items-center px-6 border-b border-slate-800">
+        <div className="flex items-center gap-2 text-white">
+          <div className="bg-amber-500 p-1.5 rounded-md">
+            <ActivityIcon className="w-5 h-5 text-slate-900" aria-hidden="true" />
           </div>
+          <span className="text-lg font-semibold tracking-wide">StockPulse</span>
         </div>
+      </div>
 
       {/* Navigation */}
       <nav
         className="flex-1 overflow-y-auto py-6 px-3 space-y-1"
-        aria-label="Sidebar Navigation">
-        
+        aria-label="Sidebar Navigation"
+      >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.name;
+
           return (
             <button
               key={item.name}
               onClick={() => onNavigate(item.name)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${isActive ? 'bg-slate-800 text-white relative' : 'hover:bg-slate-800/50 hover:text-white'}`}
-              aria-current={isActive ? 'page' : undefined}>
-              
-              {isActive &&
+              aria-current={isActive ? 'page' : undefined}
+            >
+              {isActive ? (
               <div
                 className="absolute left-0 top-2 bottom-2 w-1 bg-amber-500 rounded-r-full"
-                aria-hidden="true" />
-
-                }
-                <Icon
-                  className={`w-5 h-5 ${isActive ? 'text-amber-500' : 'text-slate-400 group-hover:text-slate-300'}`}
-                  aria-hidden="true" />
-
-                <span className="font-medium text-sm">{item.name}</span>
-              </button>);
-
+                aria-hidden="true"
+              />
+              ) : null}
+              <Icon
+                className={`w-5 h-5 ${isActive ? 'text-amber-500' : 'text-slate-400 group-hover:text-slate-300'}`}
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">{item.name}</span>
+            </button>
+          );
         })}
       </nav>
 
@@ -107,6 +111,6 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           </div>
         </button>
       </div>
-    </aside>);
-
+    </aside>
+  );
 }

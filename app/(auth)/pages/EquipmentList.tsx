@@ -17,6 +17,7 @@ import {
   PlusIcon,
   FilterIcon,
   DownloadIcon,
+  PrinterIcon,
   MoreVerticalIcon,
   CheckCircle2Icon,
   WrenchIcon,
@@ -76,6 +77,7 @@ export function EquipmentList() {
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(true);
   const [isSubmittingEquipment, setIsSubmittingEquipment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
@@ -252,6 +254,174 @@ export function EquipmentList() {
     }
   };
 
+  const handlePrintEquipmentQr = async (item: EquipmentListItem) => {
+    const quantityInput = (printQuantities[item.id] ?? '1').trim();
+    const quantity = Number.parseInt(quantityInput, 10);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setError('Please enter a valid print quantity greater than 0.');
+      return;
+    }
+
+    if (quantity > 200) {
+      setError('Please enter a print quantity up to 200 labels.');
+      return;
+    }
+
+    setError(null);
+
+    let qrDataUrl = '';
+    try {
+      const QRCodeLib = await import('qrcode');
+      qrDataUrl = await QRCodeLib.toDataURL(item.qrCode, {
+        width: 220,
+        margin: 1,
+        errorCorrectionLevel: 'H',
+      });
+    } catch {
+      setError('Unable to generate QR code image for printing right now.');
+      return;
+    }
+
+    const printWindow = window.open('', '', 'width=1100,height=800');
+    if (!printWindow) {
+      setError('Please allow pop-ups to print QR codes.');
+      return;
+    }
+
+    const logoUrl = new URL('/logo/GWlogo.webp', window.location.origin).toString();
+    let labelsHtml = '';
+
+    for (let i = 0; i < quantity; i++) {
+      labelsHtml += `
+        <div class="label">
+          <div class="meta"><strong>${item.modelName}</strong></div>
+          <div class="qr-code">
+            <img class="qr-image" src="${qrDataUrl}" alt="QR code" />
+          </div>
+          <img class="logo" src="${logoUrl}" alt="Great Work logo" />
+          <div class="qr-value">${item.qrCode}</div>
+        </div>
+      `;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Print QR - ${item.qrCode}</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            padding: 20px;
+          }
+          .print-ui {
+            text-align: center;
+            margin-bottom: 12px;
+          }
+          .print-btn {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 700;
+          }
+          .print-note {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #475569;
+          }
+          .sheet {
+            width: 8.5in;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 2.6in);
+            column-gap: 0.12in;
+            row-gap: 0.12in;
+            justify-content: center;
+          }
+          .label {
+            width: 2.5in;
+            min-height: 2.1in;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+          }
+          .meta {
+            width: 100%;
+            text-align: center;
+            color: #0f172a;
+          }
+          .qr-code {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .qr-image {
+            width: 145px;
+            height: 145px;
+          }
+          .logo {
+            width: 0.88in;
+            height: 0.18in;
+            object-fit: contain;
+          }
+          .qr-value {
+            font-family: monospace;
+            font-size: 12px;
+            color: #334155;
+            word-break: break-all;
+          }
+          @media print {
+            @page { size: auto; margin: 0.2in; }
+            body { background: #ffffff; padding: 0; }
+            .print-ui { display: none; }
+            .label { border: 1px solid #000; border-radius: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-ui">
+          <button class="print-btn" onclick="window.print()">Print ${quantity} QR Label(s)</button>
+          <div class="print-note">If you see empty images, wait 1-2 seconds then click Print again.</div>
+        </div>
+        <div class="sheet">
+          ${labelsHtml}
+        </div>
+        <script>
+          const images = Array.from(document.querySelectorAll('img'));
+          Promise.all(
+            images.map((image) => new Promise((resolve) => {
+              if (image.complete) {
+                resolve();
+                return;
+              }
+              image.onload = () => resolve();
+              image.onerror = () => resolve();
+            }))
+          ).then(() => {
+            document.title = 'Print QR - ready';
+          });
+        <\/script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar />
@@ -424,9 +594,36 @@ export function EquipmentList() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
-                          <MoreVerticalIcon className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={200}
+                            value={printQuantities[item.id] ?? '1'}
+                            onChange={(event) =>
+                              setPrintQuantities((prev) => ({
+                                ...prev,
+                                [item.id]: event.target.value,
+                              }))
+                            }
+                            className="w-16 rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700 focus:border-amber-500 focus:outline-none"
+                            aria-label={`Print quantity for ${item.qrCode}`}
+                            title="Print quantity"
+                          />
+                          <button
+                            onClick={() => {
+                              void handlePrintEquipmentQr(item);
+                            }}
+                            className="text-stone-400 hover:text-stone-700 p-1.5 rounded-md hover:bg-stone-100 transition-colors"
+                            title="Print QR"
+                            aria-label={`Print QR for ${item.qrCode}`}
+                          >
+                            <PrinterIcon className="w-4 h-4" />
+                          </button>
+                          <button className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors">
+                            <MoreVerticalIcon className="w-5 h-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
