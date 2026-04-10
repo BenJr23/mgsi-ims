@@ -1,0 +1,72 @@
+flowchart TD
+	A[User signs in] --> B{Authenticated?}
+	B -- No --> C[Sign-in page]
+	B -- Yes --> D[IMS dashboard]
+	D --> E{Choose module}
+
+	E --> F[Areas]
+	E --> G[Equipment Models]
+	E --> H[Equipment]
+	E --> I[Profile, Reports, Users]
+
+	subgraph AM[Area Management]
+		F --> F1[Create area]
+		F1 --> F2[Validate branch reference and room data]
+		F2 --> F3[Save area with createdById]
+		F3 --> F4[Invalidate branch cache]
+
+		F --> F5[Edit area]
+		F5 --> F6[Load existing area]
+		F6 --> F7[Update room data or branch reference]
+		F7 --> F4
+
+		F --> F8[Delete area]
+		F8 --> F9[Soft delete: set deletedAt]
+		F9 --> F10[Area is hidden from future fetches]
+		F10 --> F4
+	end
+
+	subgraph EM[Equipment Model Workflow]
+		G --> G1[Create equipment model]
+		G1 --> G2[Validate name, type, and optional price]
+		G2 --> G3[Save model with createdById]
+		G3 --> G4[Invalidate equipment-model cache]
+
+		G --> G5[Edit equipment model]
+		G5 --> G6[Load existing model]
+		G6 --> G7[Validate changes]
+		G7 --> G8[Update model fields]
+		G8 --> G4
+
+		G --> G9[Delete equipment model]
+		G9 --> G10[Soft delete: set deletedAt]
+		G10 --> G11[Model is hidden from future fetches]
+		G11 --> G12[Invalidate equipment-model cache]
+	end
+
+	subgraph EQ[Equipment Workflow]
+		H --> H1[Create equipment]
+		H1 --> H2[Validate equipment model, area, and status]
+		H2 --> H3[Generate SKU and QR code]
+		H3 --> H4[Save equipment with createdById]
+		H4 --> H5[Invalidate equipment, branch, and model caches]
+
+		H --> H6[Edit equipment]
+		H6 --> H7[Load existing equipment]
+		H7 --> H8[Validate updated model, area, and status]
+		H8 --> H9[Update equipment fields]
+		H9 --> H5
+
+		H --> H10[Delete equipment]
+		H10 --> H11[Soft delete: set deletedAt]
+		H11 --> H12[Equipment is hidden from future fetches]
+		H12 --> H5
+	end
+
+	subgraph SharedRules[Shared IMS Rules]
+		R1[All protected actions require a valid session] --> R2[Reads filter out deletedAt records]
+		R2 --> R3[Create and update actions refresh caches]
+		R3 --> R4[Soft deletes preserve history and auditability]
+	end
+
+	D -.-> SharedRules
