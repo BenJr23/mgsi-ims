@@ -1,5 +1,11 @@
 import React, { Suspense, lazy } from 'react';
 
+export const metadata = {
+  title: 'Equipment Models | MGSI - Inventory Management System',
+  description: 'Manage your equipment models and their specifications.',
+};
+
+
 const EquipmentModelsContent = lazy(() => import('./EquipmentModelsContent'));
 
 function EquipmentModelsSkeleton() {

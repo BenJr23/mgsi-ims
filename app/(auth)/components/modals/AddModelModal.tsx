@@ -201,7 +201,7 @@ export function AddModelModal({
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
-                      $
+                      ₱
                     </span>
                     <input
                       type="text"

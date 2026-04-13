@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import {
   PlusIcon,
   DownloadIcon,
@@ -42,11 +44,49 @@ function getProgressColor(status: StockStatus) {
 }
 
 export function InventoryTable() {
+  const router = useRouter();
   const [products, setProducts] = useState<DashboardInventoryOverviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<{
+    productId: string;
+    top: number;
+    left: number;
+  } | null>(null);
   const maxStock = Math.max(...products.map((item) => item.stockQty), 1);
+
+  const handleViewProduct = (productId: string) => {
+    setOpenMenu(null);
+    router.push(`/products/${productId}`);
+  };
+
+  const handlePrintProduct = (productId: string) => {
+    setOpenMenu(null);
+    router.push(`/products/${productId}/print`);
+  };
+
+  const toggleActionMenu = (productId: string, button: HTMLButtonElement) => {
+    if (openMenu?.productId === productId) {
+      setOpenMenu(null);
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 144;
+    const viewportPadding = 8;
+    const alignedLeft = rect.right - menuWidth;
+    const left = Math.max(
+      viewportPadding,
+      Math.min(alignedLeft, window.innerWidth - menuWidth - viewportPadding),
+    );
+
+    setOpenMenu({
+      productId,
+      top: rect.bottom + 8,
+      left,
+    });
+  };
 
   const handleExportPdf = async () => {
     if (products.length === 0 || isExporting) {
@@ -133,6 +173,41 @@ export function InventoryTable() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!openMenu) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        setOpenMenu(null);
+        return;
+      }
+
+      if (target.closest('[data-row-action-trigger], [data-row-action-menu]')) {
+        return;
+      }
+
+      setOpenMenu(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenMenu(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [openMenu]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
@@ -300,13 +375,15 @@ export function InventoryTable() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       type="button"
+                      data-row-action-trigger
+                      onClick={(event) => toggleActionMenu(product.id, event.currentTarget)}
                       className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none"
-                      aria-label={`Actions for ${product.name}`}>
-
+                      aria-label={`Actions for ${product.name}`}
+                      aria-expanded={openMenu?.productId === product.id}
+                    >
                       <MoreVerticalIcon
                         className="w-5 h-5"
                         aria-hidden="true" />
-
                     </button>
                   </td>
                 </tr>
@@ -324,6 +401,33 @@ export function InventoryTable() {
           </tbody>
         </table>
       </div>
+
+      {openMenu ? createPortal(
+        <div
+          data-row-action-menu
+          className="fixed z-120 w-36 rounded-lg border border-stone-200 bg-white py-1 shadow-xl"
+          style={{
+            top: `${openMenu.top}px`,
+            left: `${openMenu.left}px`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleViewProduct(openMenu.productId)}
+            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            View
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePrintProduct(openMenu.productId)}
+            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+          >
+            Print
+          </button>
+        </div>,
+        document.body,
+      ) : null}
     </div>);
 
 }

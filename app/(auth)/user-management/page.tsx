@@ -1,299 +1,45 @@
-'use client';
-  
-import React from 'react';
-import {
-  UsersIcon,
-  ShieldCheckIcon,
-  ClockIcon,
-  UserPlusIcon,
-  SearchIcon,
-  FilterIcon,
-  PlusIcon,
-  MoreVerticalIcon } from
-'lucide-react';
-import { motion } from 'framer-motion';
-const METRICS = [
-{
-  name: 'Total Users',
-  value: '24',
-  icon: UsersIcon,
-  color: 'text-stone-600',
-  bg: 'bg-stone-100'
-},
-{
-  name: 'Verified',
-  value: '21',
-  icon: ShieldCheckIcon,
-  color: 'text-emerald-600',
-  bg: 'bg-emerald-100'
-},
-{
-  name: 'Pending Verification',
-  value: '3',
-  icon: ClockIcon,
-  color: 'text-amber-600',
-  bg: 'bg-amber-100'
-},
-{
-  name: 'New This Month',
-  value: '5',
-  icon: UserPlusIcon,
-  color: 'text-blue-600',
-  bg: 'bg-blue-100'
-}];
+import React, { Suspense, lazy } from 'react';
 
-const USERS = [
-{
-  id: '1',
-  name: 'Jane Doe',
-  email: 'jane@stockpulse.com',
-  role: 'Super Admin',
-  status: 'Verified',
-  created: 'Jan 15, 2026',
-  lastActive: '2 min ago'
-},
-{
-  id: '2',
-  name: 'Alex Rivera',
-  email: 'alex@techflow.com',
-  role: 'Admin',
-  status: 'Verified',
-  created: 'Feb 3, 2026',
-  lastActive: '1h ago'
-},
-{
-  id: '3',
-  name: 'Maria Santos',
-  email: 'maria@greenleaf.com',
-  role: 'Manager',
-  status: 'Verified',
-  created: 'Feb 10, 2026',
-  lastActive: '3h ago'
-},
-{
-  id: '4',
-  name: 'Robert Chang',
-  email: 'robert@steelcraft.com',
-  role: 'Manager',
-  status: 'Verified',
-  created: 'Feb 18, 2026',
-  lastActive: '1d ago'
-},
-{
-  id: '5',
-  name: 'Sophie Laurent',
-  email: 'sophie@novatech.com',
-  role: 'Viewer',
-  status: 'Pending',
-  created: 'Mar 1, 2026',
-  lastActive: 'Never'
-},
-{
-  id: '6',
-  name: 'Daniel Okafor',
-  email: 'daniel@homebasics.com',
-  role: 'Manager',
-  status: 'Verified',
-  created: 'Mar 5, 2026',
-  lastActive: '5h ago'
-},
-{
-  id: '7',
-  name: 'Jennifer Wu',
-  email: 'jennifer@pacificfw.com',
-  role: 'Viewer',
-  status: 'Verified',
-  created: 'Mar 12, 2026',
-  lastActive: '2d ago'
-},
-{
-  id: '8',
-  name: 'Tom Harris',
-  email: 'tom@example.com',
-  role: 'Viewer',
-  status: 'Pending',
-  created: 'Mar 20, 2026',
-  lastActive: 'Never'
-}];
+const UserManagementContent = lazy(async () => {
+  const imported = await import('../components/UserManagementContent');
+  return { default: imported.UserManagementContent };
+});
 
-function getRoleBadge(role: string) {
-  switch (role) {
-    case 'Super Admin':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
-    case 'Admin':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'Manager':
-      return 'bg-stone-100 text-stone-800 border-stone-200';
-    case 'Viewer':
-      return 'bg-stone-100 text-stone-600 border-stone-200';
-    default:
-      return 'bg-stone-100 text-stone-600 border-stone-200';
-  }
-}
-export default function UserManagementPage() {
+function UserManagementSkeleton() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen" aria-hidden="true">
       <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 animate-pulse">
           <div>
-            <h1 className="text-2xl font-bold text-stone-900 tracking-tight">
-              User Management
-            </h1>
-            <p className="text-sm text-stone-500 mt-1">
-              Manage accounts and permissions
-            </p>
+            <div className="h-8 w-56 rounded bg-stone-200" />
+            <div className="mt-2 h-4 w-64 rounded bg-stone-200" />
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Search users..."
-                className="placeholder-gray-600 w-full sm:w-64 pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white shadow-sm" />
-              
-            </div>
-            <button className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
-              <FilterIcon className="w-4 h-4" />
-              All Roles
-            </button>
-            <button className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
-              <PlusIcon className="w-4 h-4" />
-              Add User
-            </button>
-          </div>
+          <div className="h-10 w-72 rounded bg-stone-200" />
         </div>
 
-        {/* Metrics Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {METRICS.map((metric, i) => {
-            const Icon = metric.icon;
-            return (
-              <motion.div
-                key={metric.name}
-                initial={{
-                  opacity: 0,
-                  y: 20
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0
-                }}
-                transition={{
-                  delay: i * 0.1
-                }}
-                className="bg-white rounded-xl p-5 shadow-sm border border-stone-200 flex items-center gap-4">
-                
-                <div className={`p-3 rounded-full ${metric.bg} shrink-0`}>
-                  <Icon className={`w-5 h-5 ${metric.color}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-stone-500">
-                    {metric.name}
-                  </p>
-                  <p className="text-xl font-bold text-stone-900 mt-0.5">
-                    {metric.value}
-                  </p>
-                </div>
-              </motion.div>);
-
-          })}
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={`user-metric-skeleton-${index}`} className="bg-white rounded-xl p-5 border border-stone-200 animate-pulse">
+              <div className="h-4 w-28 rounded bg-stone-200" />
+              <div className="mt-3 h-7 w-16 rounded bg-stone-200" />
+            </div>
+          ))}
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-stone-200">
-              <thead className="bg-stone-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
-                    User
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
-                    Role
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
-                    Status
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
-                    Created
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
-                    
-                    Last Active
-                  </th>
-                  <th scope="col" className="relative px-6 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-stone-100">
-                {USERS.map((user) =>
-                <tr
-                  key={user.id}
-                  className="hover:bg-stone-50/80 transition-colors group">
-                  
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <img
-                        className="h-8 w-8 rounded-full border border-stone-200 bg-stone-100"
-                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=f5f5f4&color=1c1917&size=32`}
-                        alt={user.name} />
-                      
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-stone-900">
-                            {user.name}
-                          </p>
-                          <p className="text-sm text-stone-500">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleBadge(user.role)}`}>
-                      
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.status === 'Verified' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
-                      
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                      {user.created}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                      {user.lastActive}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
-                        <MoreVerticalIcon className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="bg-white rounded-xl border border-stone-200 p-6 space-y-3">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={`user-row-skeleton-${index}`} className="h-10 rounded bg-stone-100 animate-pulse" />
+          ))}
         </div>
       </main>
-    </div>);
+    </div>
+  );
+}
 
+export default function UserManagementPage() {
+  return (
+    <Suspense fallback={<UserManagementSkeleton />}>
+      <UserManagementContent />
+    </Suspense>
+  );
 }

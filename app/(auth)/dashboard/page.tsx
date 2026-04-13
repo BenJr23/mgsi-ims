@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+
 export const metadata = {
 	title: 'Dashboard | MGSI - Inventory Management System',
 	description: 'Your dashboard for managing assets and inventory.',

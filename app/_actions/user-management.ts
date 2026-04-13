@@ -1,0 +1,138 @@
+"use server";
+
+import { prisma } from '@/lib/prisma';
+
+export type UserManagementMetric = {
+    name: string;
+    value: string;
+};
+
+export type UserManagementRow = {
+    id: string;
+    name: string;
+    email: string;
+    role: 'Super Admin' | 'Admin' | 'Manager' | 'Viewer';
+    status: 'Verified' | 'Pending';
+    created: string;
+    lastActive: string;
+};
+
+type FetchUserManagementResult =
+    | {
+        ok: true;
+        metrics: UserManagementMetric[];
+        users: UserManagementRow[];
+    }
+    | {
+        ok: false;
+        message: string;
+    };
+
+function formatRole(role: 'ADMIN' | 'USER' | 'MANAGER'): UserManagementRow['role'] {
+    if (role === 'ADMIN') {
+        return 'Admin';
+    }
+
+    if (role === 'MANAGER') {
+        return 'Manager';
+    }
+
+    return 'Viewer';
+}
+
+function formatDate(value: Date): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+    }).format(value);
+}
+
+function formatRelativeTime(value: Date | null): string {
+    if (!value) {
+        return 'Never';
+    }
+
+    const diffMs = Date.now() - value.getTime();
+    const minuteMs = 60_000;
+    const hourMs = 60 * minuteMs;
+    const dayMs = 24 * hourMs;
+
+    if (diffMs < hourMs) {
+        const minutes = Math.max(1, Math.floor(diffMs / minuteMs));
+        return `${minutes}m ago`;
+    }
+
+    if (diffMs < dayMs) {
+        const hours = Math.floor(diffMs / hourMs);
+        return `${hours}h ago`;
+    }
+
+    const days = Math.floor(diffMs / dayMs);
+    return `${days}d ago`;
+}
+
+export async function fetchUserManagementAction(): Promise<FetchUserManagementResult> {
+    try {
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                emailVerified: true,
+                createdAt: true,
+                sessions: {
+                    select: {
+                        updatedAt: true,
+                    },
+                    orderBy: {
+                        updatedAt: 'desc',
+                    },
+                    take: 1,
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+
+        const verifiedCount = users.filter((item) => item.emailVerified).length;
+        const pendingCount = users.length - verifiedCount;
+        const newThisMonth = users.filter((item) => item.createdAt >= monthStart).length;
+
+        const rows: UserManagementRow[] = users.map((item) => ({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            role: formatRole(item.role),
+            status: item.emailVerified ? 'Verified' : 'Pending',
+            created: formatDate(item.createdAt),
+            lastActive: formatRelativeTime(item.sessions[0]?.updatedAt ?? null),
+        }));
+
+        return {
+            ok: true,
+            metrics: [
+                { name: 'Total Users', value: String(users.length) },
+                { name: 'Verified', value: String(verifiedCount) },
+                { name: 'Pending Verification', value: String(pendingCount) },
+                { name: 'New This Month', value: String(newThisMonth) },
+            ],
+            users: rows,
+        };
+    } catch (error) {
+        console.error('[User Management Action] Failed to fetch users', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+
+        return {
+            ok: false,
+            message: 'Unable to load user management data right now.',
+        };
+    }
+}
