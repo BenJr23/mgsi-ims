@@ -72,7 +72,7 @@ export function ProfileView({
     .join("");
 
   return (
-    <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+    <main className="flex-1 w-full min-h-screen px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 bg-white">
       <section className="rounded-2xl border border-stone-200 bg-white shadow-sm overflow-hidden">
         <div className="relative border-b border-stone-200 bg-[linear-gradient(120deg,#0f172a,#1e293b_45%,#334155)] p-6 sm:p-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(245,158,11,0.28),transparent_30%),radial-gradient(circle_at_85%_10%,rgba(14,165,233,0.20),transparent_28%)]" />

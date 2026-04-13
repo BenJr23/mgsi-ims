@@ -1,5 +1,4 @@
 import React from 'react';
-import { TopBar } from '../components/TopBar';
 import {
   CalendarIcon,
   TrendingUpIcon,
@@ -7,12 +6,10 @@ import {
   ArrowDownRightIcon } from
 'lucide-react';
 import { motion } from 'framer-motion';
-export function Reports() {
+export default function ReportsPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
-
-      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

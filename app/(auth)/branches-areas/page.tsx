@@ -1,5 +1,6 @@
+"use client";
+
 import React, { useEffect, useMemo, useState } from 'react';
-import { TopBar } from '../components/TopBar';
 import { AddAreaModal } from '../components/modals/AddAreaModal';
 import { EditAreaModal } from '../components/modals/EditAreaModal';
 import { DeleteAreaModal } from '../components/modals/DeleteAreaModal';
@@ -17,7 +18,7 @@ import {
   Trash2Icon } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-export function BranchesAreas() {
+export default function BranchesAreasPage() {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [addAreaBranch, setAddAreaBranch] = useState<BranchItem | null>(null);
@@ -206,9 +207,7 @@ export function BranchesAreas() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
-
-      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -255,7 +254,7 @@ export function BranchesAreas() {
                 }}
                 className="bg-white rounded-xl p-5 shadow-sm border border-stone-200 flex items-center gap-4">
                 
-                <div className={`p-3 rounded-full ${metric.bg} flex-shrink-0`}>
+                <div className={`p-3 rounded-full ${metric.bg} shrink-0`}>
                   <Icon className={`w-5 h-5 ${metric.color}`} />
                 </div>
                 <div>

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { TopBar } from '../components/TopBar';
 import { PRODUCTS, Product } from '../constants/products';
 import { MinusIcon, PlusIcon, ScanLineIcon } from 'lucide-react';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
@@ -116,7 +115,7 @@ function formatRelativeTime(date: Date) {
   return `${diffInDays} days ago`;
 }
 
-export function StockAdjust() {
+export default function StockAdjustPage() {
   const [inventory, setInventory] = useState<Product[]>(PRODUCTS);
   const [mode, setMode] = useState<AdjustMode>('scan');
   const [scanValue, setScanValue] = useState('');
@@ -543,7 +542,6 @@ export function StockAdjust() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Stock Scanner</h1>

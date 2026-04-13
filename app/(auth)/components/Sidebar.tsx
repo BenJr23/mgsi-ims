@@ -1,4 +1,8 @@
+"use client";
+
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboardIcon,
   BoxIcon,
@@ -14,47 +18,53 @@ import {
 type NavItem = {
   name: string;
   icon: LucideIcon;
+  href: string;
 };
 
 const MAIN_NAV_ITEMS = [
 {
   name: 'Dashboard',
-  icon: LayoutDashboardIcon
+  icon: LayoutDashboardIcon,
+  href: '/dashboard',
 },
 {
   name: 'Equipment Models',
-  icon: BoxIcon
+  icon: BoxIcon,
+  href: '/equipment-models',
 },
 {
   name: 'Equipment List',
-  icon: QrCodeIcon
+  icon: QrCodeIcon,
+  href: '/equipment',
 },
 {
   name: 'Stock Scanner',
-  icon: ScanLineIcon
+  icon: ScanLineIcon,
+  href: '/stock-adjust',
 },
 {
   name: 'Reports',
-  icon: BarChart3Icon
+  icon: BarChart3Icon,
+  href: '/reports',
 }] satisfies NavItem[];
 
 const ADMIN_NAV_ITEMS = [
 {
   name: 'Branches & Areas',
-  icon: Building2Icon
+  icon: Building2Icon,
+  href: '/branches-areas',
 },
 {
   name: 'User Management',
-  icon: UsersIcon
+  icon: UsersIcon,
+  href: '/user-management',
 }] satisfies NavItem[];
 
 const NAV_ITEMS = [...MAIN_NAV_ITEMS, ...ADMIN_NAV_ITEMS];
 
-interface SidebarProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
-}
-export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex-col z-20">
       {/* Logo Area */}
@@ -74,12 +84,12 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = currentPage === item.name;
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
-            <button
+            <Link
               key={item.name}
-              onClick={() => onNavigate(item.name)}
+              href={item.href}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${isActive ? 'bg-slate-800 text-white relative' : 'hover:bg-slate-800/50 hover:text-white'}`}
               aria-current={isActive ? 'page' : undefined}
             >
@@ -94,7 +104,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
                 aria-hidden="true"
               />
               <span className="font-medium text-sm">{item.name}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>
@@ -102,7 +112,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       {/* User Info */}
       <div className="p-4 border-t border-slate-800">
         <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-800 transition-colors text-left">
-          <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-600">
+          <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center shrink-0 border border-slate-600">
             <span className="text-sm font-medium text-white">JD</span>
           </div>
           <div className="flex-1 min-w-0">

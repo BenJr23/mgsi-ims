@@ -1,5 +1,6 @@
+"use client";
+
 import React, { useEffect, useMemo, useState } from 'react';
-import { TopBar } from '../components/TopBar';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
 import {
   createEquipmentAction,
@@ -75,7 +76,7 @@ function formatEquipmentQrLink(qrCode: string): string {
   }
 }
 
-export function EquipmentList() {
+export default function EquipmentPage() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
@@ -431,9 +432,7 @@ export function EquipmentList() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
-
-      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
         {error ? (
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
             {error}
@@ -488,7 +487,7 @@ export function EquipmentList() {
                 transition={{ delay: i * 0.1 }}
                 className="bg-white rounded-xl p-5 shadow-sm border border-stone-200 flex items-center gap-4"
               >
-                <div className={`p-3 rounded-full ${metric.bg} flex-shrink-0`}>
+                <div className={`p-3 rounded-full ${metric.bg} shrink-0`}>
                   <Icon className={`w-5 h-5 ${metric.color}`} />
                 </div>
                 <div>

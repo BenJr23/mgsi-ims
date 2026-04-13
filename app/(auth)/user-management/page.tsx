@@ -1,5 +1,6 @@
-import React, { Component } from 'react';
-import { TopBar } from '../components/TopBar';
+'use client';
+  
+import React from 'react';
 import {
   UsersIcon,
   ShieldCheckIcon,
@@ -129,12 +130,10 @@ function getRoleBadge(role: string) {
       return 'bg-stone-100 text-stone-600 border-stone-200';
   }
 }
-export function UserManagement() {
+export default function UserManagementPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
-
-      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -185,7 +184,7 @@ export function UserManagement() {
                 }}
                 className="bg-white rounded-xl p-5 shadow-sm border border-stone-200 flex items-center gap-4">
                 
-                <div className={`p-3 rounded-full ${metric.bg} flex-shrink-0`}>
+                <div className={`p-3 rounded-full ${metric.bg} shrink-0`}>
                   <Icon className={`w-5 h-5 ${metric.color}`} />
                 </div>
                 <div>

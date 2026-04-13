@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TopBar } from '../components/TopBar';
 import { ProductCard } from '../components/ProductCard';
 import { PlusIcon, SearchIcon, FilterIcon, PrinterIcon, CheckIcon } from 'lucide-react';
 
@@ -11,7 +10,7 @@ import { CATEGORIES, PRODUCTS } from '../constants/products';
 import { containerVariants, itemVariants } from '../utils/productHelpers';
 import { generateBulkPrintHTML, resolveQrBaseUrl } from '../utils/printQRCode';
 
-export function Products() {
+export default function ProductsPage() {
   const [selectedProducts, setSelectedProducts] = useState<Map<string, number>>(new Map());
   const [copyQuantities, setCopyQuantities] = useState<Map<string, number>>(new Map());
 
@@ -70,9 +69,7 @@ export function Products() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
-
-      <main className="flex-1 p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+      <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
