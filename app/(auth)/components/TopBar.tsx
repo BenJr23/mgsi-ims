@@ -1,11 +1,31 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
-import { SearchIcon, BellIcon } from 'lucide-react';
+import { SearchIcon, BellIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { signOutAction } from '@/app/_actions/auth';
 import { useRouter } from 'next/navigation';
+
+function buildMockSuggestions(query: string): string[] {
+  const q = query.trim();
+  if (!q) {
+    return [];
+  }
+
+  const suggestions = [
+    q,
+    `${q} sku`,
+    `${q} equipment model`,
+    `${q} low stock`,
+    `${q} inventory report`,
+    `${q} branch area`,
+    `${q} latest updates`,
+    `${q} analytics`,
+  ];
+
+  return Array.from(new Set(suggestions)).slice(0, 8);
+}
 
 export function TopBar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -56,6 +76,9 @@ export function TopBar() {
     setIsSearchOpen(true);
   }
 
+  const suggestions = buildMockSuggestions(searchQuery);
+  const showSearchResults = isSearchOpen && searchQuery.trim().length > 0;
+
   return (
     <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex h-17.5 w-full max-w-400 items-center gap-4 px-4 sm:px-6 lg:px-8">
@@ -84,25 +107,67 @@ export function TopBar() {
                 if (event.key === 'Escape') {
                   setIsSearchOpen(false);
                 }
+
+                if (event.key === 'Enter') {
+                  setIsSearchOpen(false);
+                }
               }}
-              className="block h-10 w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-3 text-sm leading-5 text-stone-900 placeholder-stone-400 transition-all focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="block h-10 w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-3 text-sm leading-5 text-stone-900 placeholder-gray-600 transition-all focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
               placeholder="Search products, SKUs..."
               aria-label="Search inventory"
+              aria-autocomplete="list"
             />
 
-            {isSearchOpen && searchQuery.trim().length > 0 ? (
+            {searchQuery.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsSearchOpen(false);
+                }}
+                className="absolute inset-y-0 right-2 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+                aria-label="Clear search"
+              >
+                <XIcon className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
+
+            {showSearchResults ? (
               <div
                 id="topbar-search-results"
                 role="listbox"
                 aria-label="Search suggestions"
-                className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-lg"
+                className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-96 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-2 shadow-xl"
               >
-                <div className="border-b border-stone-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
                   Suggestions
                 </div>
-                <div className="px-3 py-4 text-sm text-stone-500" role="option" aria-selected="false">
-                  No results found
-                </div>
+
+                {suggestions.length > 0 ? (
+                  <div className="space-y-1">
+                    {suggestions.map((item, index) => (
+                      <button
+                        key={`${item}-${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected="false"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setSearchQuery(item);
+                          setIsSearchOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-stone-700 transition-colors hover:bg-stone-100"
+                      >
+                        <SearchIcon className="h-4 w-4 shrink-0 text-stone-400" aria-hidden="true" />
+                        <span className="truncate">{item}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-3 py-4 text-sm text-stone-500" role="option" aria-selected="false">
+                    No results found
+                  </div>
+                )}
               </div>
             ) : null}
           </div>

@@ -433,24 +433,6 @@ export default function EquipmentPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
-        {error ? (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-
-        {isLoadingSupportData ? (
-          <div className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-500">
-            Loading equipment form data...
-          </div>
-        ) : null}
-
-        {isLoadingEquipment ? (
-          <div className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-500">
-            Loading equipment records...
-          </div>
-        ) : null}
-
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-stone-900 tracking-tight">
@@ -520,7 +502,7 @@ export default function EquipmentPage() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by QR, SKU, model..."
-                  className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
+                  className="placeholder-gray-600 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
                 />
               </div>
               <button className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors">
