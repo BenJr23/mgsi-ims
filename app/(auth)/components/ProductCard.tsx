@@ -137,7 +137,7 @@ export function ProductCard({
       key={product.id}
       variants={itemVariants}
       className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden group hover:shadow-md transition-shadow flex flex-col">
-      
+
       {/* Selection Checkbox */}
       <div className="absolute top-3 left-3 z-10">
         <label className="flex items-center gap-2 cursor-pointer">

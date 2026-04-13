@@ -1,3 +1,6 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import {
   PlusIcon,
   DownloadIcon,
@@ -5,91 +8,12 @@ import {
   MoreVerticalIcon
 } from
   'lucide-react';
+import {
+  fetchDashboardInventoryOverviewAction,
+  type DashboardInventoryOverviewItem,
+} from '@/app/_actions/dashboard';
 
 type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  stockQty: number;
-  status: StockStatus;
-  lastUpdated: string;
-}
-
-const INVENTORY_DATA: Product[] = [
-  {
-    id: '1',
-    name: 'Wireless Bluetooth Headphones',
-    sku: 'SKU-7291',
-    category: 'Electronics',
-    stockQty: 342,
-    status: 'In Stock',
-    lastUpdated: '2h ago'
-  },
-  {
-    id: '2',
-    name: 'Organic Cotton T-Shirt (M)',
-    sku: 'SKU-4518',
-    category: 'Apparel',
-    stockQty: 12,
-    status: 'Low Stock',
-    lastUpdated: '5h ago'
-  },
-  {
-    id: '3',
-    name: 'Stainless Steel Water Bottle',
-    sku: 'SKU-8834',
-    category: 'Kitchen',
-    stockQty: 0,
-    status: 'Out of Stock',
-    lastUpdated: '1d ago'
-  },
-  {
-    id: '4',
-    name: 'USB-C Charging Cable 6ft',
-    sku: 'SKU-2201',
-    category: 'Electronics',
-    stockQty: 1205,
-    status: 'In Stock',
-    lastUpdated: '2d ago'
-  },
-  {
-    id: '5',
-    name: 'Bamboo Cutting Board Set',
-    sku: 'SKU-6673',
-    category: 'Kitchen',
-    stockQty: 8,
-    status: 'Low Stock',
-    lastUpdated: '3d ago'
-  },
-  {
-    id: '6',
-    name: 'Running Shoes (Size 10)',
-    sku: 'SKU-3390',
-    category: 'Footwear',
-    stockQty: 67,
-    status: 'In Stock',
-    lastUpdated: '4d ago'
-  },
-  {
-    id: '7',
-    name: 'Ceramic Coffee Mug 12oz',
-    sku: 'SKU-1147',
-    category: 'Kitchen',
-    stockQty: 0,
-    status: 'Out of Stock',
-    lastUpdated: '1w ago'
-  },
-  {
-    id: '8',
-    name: 'Laptop Sleeve 15 inch',
-    sku: 'SKU-5562',
-    category: 'Accessories',
-    stockQty: 189,
-    status: 'In Stock',
-    lastUpdated: '1w ago'
-  }];
 
 function getStatusStyles(status: StockStatus) {
   switch (status) {
@@ -118,6 +42,98 @@ function getProgressColor(status: StockStatus) {
 }
 
 export function InventoryTable() {
+  const [products, setProducts] = useState<DashboardInventoryOverviewItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const maxStock = Math.max(...products.map((item) => item.stockQty), 1);
+
+  const handleExportPdf = async () => {
+    if (products.length === 0 || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: 'a4',
+      });
+
+      doc.setFontSize(14);
+      doc.text('Inventory Overview', 40, 40);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+
+      autoTable(doc, {
+        startY: 72,
+        head: [['Product', 'SKU', 'Category', 'Stock Qty', 'Status', 'Last Updated']],
+        body: products.map((product) => [
+          product.name,
+          product.sku,
+          product.category,
+          String(product.stockQty),
+          product.status,
+          product.lastUpdated,
+        ]),
+        styles: {
+          fontSize: 9,
+          cellPadding: 6,
+        },
+        headStyles: {
+          fillColor: [139, 29, 29],
+          textColor: [255, 255, 255],
+        },
+      });
+
+      doc.save('inventory-overview.pdf');
+    } catch (exportError) {
+      console.error('[InventoryTable] PDF export failed', exportError);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadInventoryOverview() {
+      setIsLoading(true);
+
+      const result = await fetchDashboardInventoryOverviewAction();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (!result.ok) {
+        setError(result.message);
+        setProducts([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setError(null);
+      setProducts(result.items);
+      setIsLoading(false);
+    }
+
+    void loadInventoryOverview();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
       {/* Header */}
@@ -133,27 +149,33 @@ export function InventoryTable() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+            disabled
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50">
 
             <FilterIcon className="w-4 h-4" aria-hidden="true" />
             Filter
           </button>
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+            onClick={handleExportPdf}
+            disabled={isLoading || isExporting || products.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
 
             <DownloadIcon className="w-4 h-4" aria-hidden="true" />
-            Export
+            {isExporting ? 'Exporting...' : 'Export'}
           </button>
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
+            disabled
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
 
             <PlusIcon className="w-4 h-4" aria-hidden="true" />
             Add Product
           </button>
         </div>
       </div>
+
+
 
       {/* Table */}
       <div className="overflow-x-auto">
@@ -202,13 +224,25 @@ export function InventoryTable() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-stone-100">
-            {INVENTORY_DATA.map((product) => {
-              // Calculate a mock percentage for the progress bar (max 1500 for demo purposes)
-              const maxStock = 1500;
-              const percentage = Math.min(
-                100,
-                Math.max(0, product.stockQty / maxStock * 100)
-              );
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-8 text-center text-sm text-stone-500">
+                  Loading inventory overview...
+                </td>
+              </tr>
+            ) : null}
+
+            {!isLoading && error ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-4 text-sm text-rose-700 bg-rose-50 border-y border-rose-200">
+                  {error}
+                </td>
+              </tr>
+            ) : null}
+
+            {!isLoading && !error ? products.map((product) => {
+              const percentage = Math.min(100, Math.max(0, product.stockQty / maxStock * 100));
+
               return (
                 <tr
                   key={product.id}
@@ -216,7 +250,7 @@ export function InventoryTable() {
 
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-stone-100 rounded-md border border-stone-200 flex items-center justify-center">
+                      <div className="h-10 w-10 shrink-0 bg-stone-100 rounded-md border border-stone-200 flex items-center justify-center">
                         <span className="text-stone-400 text-xs font-medium">
                           {product.name.charAt(0)}
                         </span>
@@ -275,9 +309,18 @@ export function InventoryTable() {
 
                     </button>
                   </td>
-                </tr>);
+                </tr>
+              );
 
-            })}
+            }) : null}
+
+            {!isLoading && !error && products.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-8 text-center text-sm text-stone-500">
+                  No inventory records found.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
