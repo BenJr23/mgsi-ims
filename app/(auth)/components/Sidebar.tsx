@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,7 +12,6 @@ import {
   BarChart3Icon,
   Building2Icon,
   UsersIcon,
-  ActivityIcon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -66,15 +66,17 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex-col z-20">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 box-border bg-white text-stone-700 flex-col z-20 border-r border-stone-200">
       {/* Logo Area */}
-      <div className="h-16 flex items-center px-6 border-b border-slate-800">
-        <div className="flex items-center gap-2 text-white">
-          <div className="bg-amber-500 p-1.5 rounded-md">
-            <ActivityIcon className="w-5 h-5 text-slate-900" aria-hidden="true" />
-          </div>
-          <span className="text-lg font-semibold tracking-wide">StockPulse</span>
-        </div>
+      <div className="h-17.5 box-border flex items-center px-5 border-b border-stone-200">
+        <Image
+          src="/logo/GWlogo.webp"
+          alt="GreatWork"
+          width={220}
+          height={54}
+          className="h-9 w-full object-contain"
+          priority
+        />
       </div>
 
       {/* Navigation */}
@@ -90,17 +92,17 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${isActive ? 'bg-slate-800 text-white relative' : 'hover:bg-slate-800/50 hover:text-white'}`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${isActive ? 'bg-[#8B1D1D]/10 text-[#8B1D1D] relative' : 'hover:bg-stone-100 hover:text-stone-900'}`}
               aria-current={isActive ? 'page' : undefined}
             >
               {isActive ? (
               <div
-                className="absolute left-0 top-2 bottom-2 w-1 bg-amber-500 rounded-r-full"
+                className="absolute left-0 top-2 bottom-2 w-1 bg-[#8B1D1D] rounded-r-full"
                 aria-hidden="true"
               />
               ) : null}
               <Icon
-                className={`w-5 h-5 ${isActive ? 'text-amber-500' : 'text-slate-400 group-hover:text-slate-300'}`}
+                className={`w-5 h-5 ${isActive ? 'text-[#8B1D1D]' : 'text-stone-500 group-hover:text-stone-700'}`}
                 aria-hidden="true"
               />
               <span className="font-medium text-sm">{item.name}</span>
@@ -110,17 +112,17 @@ export function Sidebar() {
       </nav>
 
       {/* User Info */}
-      <div className="p-4 border-t border-slate-800">
-        <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-slate-800 transition-colors text-left">
-          <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center shrink-0 border border-slate-600">
-            <span className="text-sm font-medium text-white">JD</span>
+      {/* <div className="p-4 border-t border-stone-200">
+        <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-stone-100 transition-colors text-left">
+          <div className="w-9 h-9 rounded-full bg-[#8B1D1D]/10 flex items-center justify-center shrink-0 border border-[#8B1D1D]/20">
+            <span className="text-sm font-medium text-[#8B1D1D]">JD</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">Jane Doe</p>
-            <p className="text-xs text-slate-400 truncate">Store Manager</p>
+            <p className="text-sm font-medium text-stone-900 truncate">Jane Doe</p>
+            <p className="text-xs text-gray-600 truncate">Store Manager</p>
           </div>
         </button>
-      </div>
+      </div> */}
     </aside>
   );
 }

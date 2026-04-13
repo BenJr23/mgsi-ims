@@ -80,7 +80,7 @@ export function TopBar() {
   const showSearchResults = isSearchOpen && searchQuery.trim().length > 0;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 box-border border-b border-stone-200 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex h-17.5 w-full max-w-400 items-center gap-4 px-4 sm:px-6 lg:px-8">
         {/* Search */}
         <div className="min-w-0 flex-1" ref={searchRef}>
