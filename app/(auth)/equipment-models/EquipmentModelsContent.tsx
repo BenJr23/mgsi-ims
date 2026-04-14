@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AddModelModal } from '../components/modals/AddModelModal';
+import { ViewEquipmentModelModal } from '../components/modals/ViewEquipmentModelModal';
+import { EditEquipmentModelModal } from '../components/modals/EditEquipmentModelModal';
+import { DeleteEquipmentModelModal } from '../components/modals/DeleteEquipmentModelModal';
 import {
     createEquipmentModelAction,
+    updateEquipmentModelAction,
+    deleteEquipmentModelAction,
     fetchEquipmentModelsAction,
     type EquipmentModelListItem,
 } from '@/app/_actions/equipmentmodel';
@@ -13,6 +19,9 @@ import {
     PlusIcon,
     FilterIcon,
     MoreVerticalIcon,
+    EyeIcon,
+    PencilIcon,
+    Trash2Icon,
     CpuIcon,
     ArmchairIcon,
     WrenchIcon,
@@ -67,8 +76,18 @@ export default function EquipmentModelsContent() {
     const [activeTab, setActiveTab] = useState<EquipmentType | 'ALL'>('ALL');
     const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
     const [isSubmittingModel, setIsSubmittingModel] = useState(false);
+    const [isUpdatingModel, setIsUpdatingModel] = useState(false);
+    const [isDeletingModel, setIsDeletingModel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [viewModel, setViewModel] = useState<EquipmentModelListItem | null>(null);
+    const [editModel, setEditModel] = useState<EquipmentModelListItem | null>(null);
+    const [deleteModel, setDeleteModel] = useState<EquipmentModelListItem | null>(null);
+    const [openMenu, setOpenMenu] = useState<{
+        modelId: string;
+        top: number;
+        left: number;
+    } | null>(null);
 
     const loadEquipmentModels = async () => {
         setIsLoading(true);
@@ -160,6 +179,160 @@ export default function EquipmentModelsContent() {
 
     const filtered = activeTab === 'ALL' ? models : models.filter((m) => m.type === activeTab);
 
+    const toggleActionMenu = (modelId: string, button: HTMLButtonElement) => {
+        if (openMenu?.modelId === modelId) {
+            setOpenMenu(null);
+            return;
+        }
+
+        const rect = button.getBoundingClientRect();
+        const menuWidth = 168;
+        const viewportPadding = 8;
+        const alignedLeft = rect.right - menuWidth;
+        const left = Math.max(
+            viewportPadding,
+            Math.min(alignedLeft, window.innerWidth - menuWidth - viewportPadding),
+        );
+
+        setOpenMenu({
+            modelId,
+            top: rect.bottom + 8,
+            left,
+        });
+    };
+
+    const handleMenuAction = () => {
+        setOpenMenu(null);
+    };
+
+    const handleOpenViewModel = (modelId: string) => {
+        const selectedModel = models.find((model) => model.id === modelId);
+        if (!selectedModel) {
+            setError('Unable to locate the selected equipment model.');
+            return;
+        }
+
+        setOpenMenu(null);
+        setViewModel(selectedModel);
+    };
+
+    const handleOpenEditModel = (modelId: string) => {
+        const selectedModel = models.find((model) => model.id === modelId);
+        if (!selectedModel) {
+            setError('Unable to locate the selected equipment model.');
+            return;
+        }
+
+        setOpenMenu(null);
+        setEditModel(selectedModel);
+    };
+
+    const handleOpenDeleteModel = (modelId: string) => {
+        const selectedModel = models.find((model) => model.id === modelId);
+        if (!selectedModel) {
+            setError('Unable to locate the selected equipment model.');
+            return;
+        }
+
+        setOpenMenu(null);
+        setDeleteModel(selectedModel);
+    };
+
+    const handleEditModelSubmit = async (data: {
+        name: string;
+        description: string;
+        type: EquipmentType;
+        price: string;
+    }) => {
+        if (!editModel) {
+            return;
+        }
+
+        setIsUpdatingModel(true);
+        setError(null);
+
+        try {
+            const result = await updateEquipmentModelAction({
+                equipmentModelId: editModel.id,
+                ...data,
+            });
+
+            if (!result.ok) {
+                setError(result.message);
+                return;
+            }
+
+            await loadEquipmentModels();
+            setEditModel(null);
+        } catch {
+            setError('Unable to update equipment model right now. Please try again.');
+        } finally {
+            setIsUpdatingModel(false);
+        }
+    };
+
+    const handleDeleteModelConfirm = async () => {
+        if (!deleteModel) {
+            return;
+        }
+
+        setIsDeletingModel(true);
+        setError(null);
+
+        try {
+            const result = await deleteEquipmentModelAction({
+                equipmentModelId: deleteModel.id,
+            });
+
+            if (!result.ok) {
+                setError(result.message);
+                return;
+            }
+
+            await loadEquipmentModels();
+            setDeleteModel(null);
+        } catch {
+            setError('Unable to delete equipment model right now. Please try again.');
+        } finally {
+            setIsDeletingModel(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!openMenu) {
+            return;
+        }
+
+        const handlePointerDown = (event: MouseEvent) => {
+            const target = event.target;
+
+            if (!(target instanceof Element)) {
+                setOpenMenu(null);
+                return;
+            }
+
+            if (target.closest('[data-row-action-trigger], [data-row-action-menu]')) {
+                return;
+            }
+
+            setOpenMenu(null);
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpenMenu(null);
+            }
+        };
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('mousedown', handlePointerDown);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [openMenu]);
+
     return (
         <div className="flex flex-col min-h-screen">
             <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
@@ -229,6 +402,8 @@ export default function EquipmentModelsContent() {
                         </div>
                     </div>
 
+                    {error ? <div className="px-6 py-3 text-sm text-rose-700 bg-rose-50 border-b border-rose-200">{error}</div> : null}
+
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-stone-200">
                             <thead className="bg-stone-50">
@@ -287,7 +462,14 @@ export default function EquipmentModelsContent() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                                <button
+                                                    type="button"
+                                                    data-row-action-trigger
+                                                    onClick={(event) => toggleActionMenu(model.id, event.currentTarget)}
+                                                    className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none"
+                                                    aria-label={`Actions for ${model.name}`}
+                                                    aria-expanded={openMenu?.modelId === model.id}
+                                                >
                                                     <MoreVerticalIcon className="w-5 h-5" />
                                                 </button>
                                             </td>
@@ -300,10 +482,71 @@ export default function EquipmentModelsContent() {
                 </div>
             </main>
 
+            {openMenu
+                ? createPortal(
+                      <div
+                          data-row-action-menu
+                          className="fixed z-120 w-42 rounded-lg border border-stone-200 bg-white py-1 shadow-xl"
+                          style={{
+                              top: `${openMenu.top}px`,
+                              left: `${openMenu.left}px`,
+                          }}
+                      >
+                          <button
+                              type="button"
+                              onClick={() => handleOpenViewModel(openMenu.modelId)}
+                              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+                          >
+                              <EyeIcon className="w-4 h-4" aria-hidden="true" />
+                              View
+                          </button>
+                          <button
+                              type="button"
+                              onClick={() => handleOpenEditModel(openMenu.modelId)}
+                              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+                          >
+                              <PencilIcon className="w-4 h-4" aria-hidden="true" />
+                              Edit
+                          </button>
+                          <button
+                              type="button"
+                              onClick={() => handleOpenDeleteModel(openMenu.modelId)}
+                              className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-2"
+                          >
+                              <Trash2Icon className="w-4 h-4" aria-hidden="true" />
+                              Delete
+                          </button>
+                      </div>,
+                      document.body,
+                  )
+                : null}
+
             <AddModelModal
                 isOpen={isAddModelModalOpen}
                 onClose={() => setIsAddModelModalOpen(false)}
                 onSubmit={handleAddModelSubmit}
+            />
+
+            <ViewEquipmentModelModal
+                isOpen={Boolean(viewModel)}
+                onClose={() => setViewModel(null)}
+                model={viewModel}
+            />
+
+            <EditEquipmentModelModal
+                isOpen={Boolean(editModel)}
+                onClose={() => setEditModel(null)}
+                model={editModel}
+                isSubmitting={isUpdatingModel}
+                onSubmit={handleEditModelSubmit}
+            />
+
+            <DeleteEquipmentModelModal
+                isOpen={Boolean(deleteModel)}
+                onClose={() => setDeleteModel(null)}
+                modelName={deleteModel?.name ?? ''}
+                onConfirm={handleDeleteModelConfirm}
+                isDeleting={isDeletingModel}
             />
         </div>
     );
