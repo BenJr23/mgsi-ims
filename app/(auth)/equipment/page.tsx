@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
 import { EditEquipmentModal } from '../components/modals/EditEquipmentModal';
 import { DeleteEquipmentModal } from '../components/modals/DeleteEquipmentModal';
