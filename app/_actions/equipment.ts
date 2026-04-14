@@ -49,7 +49,7 @@ const EQUIPMENT_CACHE_TTL_SECONDS = 300;
 const EQUIPMENT_ROUTE_PREFIX = "/equipment";
 
 function getAppBaseUrl(): string {
-	const configuredUrl = process.env.VERCEL_URL?.trim() || "localhost:3000";
+	const configuredUrl = process.env.NEXT_PUBLIC_QR_BASE_URL?.trim() || "localhost:3000";
 
 	if (/^https?:\/\//i.test(configuredUrl)) {
 		return configuredUrl.replace(/\/$/, "");
