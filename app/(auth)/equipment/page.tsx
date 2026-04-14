@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
 import {
   createEquipmentAction,
@@ -16,7 +16,6 @@ import {
   QrCodeIcon,
   SearchIcon,
   PlusIcon,
-  FilterIcon,
   DownloadIcon,
   PrinterIcon,
   MoreVerticalIcon,
@@ -95,6 +94,10 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
 export default function EquipmentPage() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('ALL');
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState('ALL');
+  const [selectedModelFilters, setSelectedModelFilters] = useState<string[]>([]);
+  const [isModelFilterOpen, setIsModelFilterOpen] = useState(false);
   const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [models, setModels] = useState<EquipmentModelListItem[]>([]);
@@ -104,6 +107,7 @@ export default function EquipmentPage() {
   const [isSubmittingEquipment, setIsSubmittingEquipment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
+  const modelFilterRef = useRef<HTMLDivElement>(null);
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
@@ -185,6 +189,56 @@ export default function EquipmentPage() {
     [branches],
   );
 
+  const branchFilterOptions = useMemo(
+    () => ['ALL', ...Array.from(new Set(branches.map((branch) => branch.name)))],
+    [branches],
+  );
+
+  const areaFilterOptions = useMemo(
+    () => {
+      if (selectedBranchFilter === 'ALL') {
+        return [
+          'ALL',
+          ...Array.from(
+            new Set(
+              branches.flatMap((branch) =>
+                (branch.areas ?? []).map((area) => area.name),
+              ),
+            ),
+          ),
+        ];
+      }
+
+      const selectedBranch = branches.find((branch) => branch.name === selectedBranchFilter);
+      return ['ALL', ...Array.from(new Set((selectedBranch?.areas ?? []).map((area) => area.name)))];
+    },
+    [branches, selectedBranchFilter],
+  );
+
+  const modelFilterOptions = useMemo(
+    () => Array.from(new Set(models.map((model) => model.name))),
+    [models],
+  );
+
+  useEffect(() => {
+    if (selectedAreaFilter !== 'ALL' && !areaFilterOptions.includes(selectedAreaFilter)) {
+      setSelectedAreaFilter('ALL');
+    }
+  }, [areaFilterOptions, selectedAreaFilter]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!modelFilterRef.current?.contains(event.target as Node)) {
+        setIsModelFilterOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const metrics = useMemo(() => {
     const availableCount = equipment.filter((item) => item.status === 'AVAILABLE').length;
     const maintenanceCount = equipment.filter((item) => item.status === 'MAINTENANCE').length;
@@ -232,6 +286,18 @@ export default function EquipmentPage() {
         return false;
       }
 
+      if (selectedBranchFilter !== 'ALL' && item.branchName !== selectedBranchFilter) {
+        return false;
+      }
+
+      if (selectedAreaFilter !== 'ALL' && item.areaName !== selectedAreaFilter) {
+        return false;
+      }
+
+      if (selectedModelFilters.length > 0 && !selectedModelFilters.includes(item.modelName)) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -249,7 +315,14 @@ export default function EquipmentPage() {
         .toLowerCase()
         .includes(query);
     });
-  }, [activeTab, equipment, searchQuery]);
+  }, [
+    activeTab,
+    equipment,
+    searchQuery,
+    selectedAreaFilter,
+    selectedBranchFilter,
+    selectedModelFilters,
+  ]);
 
   const handleRegisterEquipmentSubmit = async (data: {
     equipmentModelId: string;
@@ -499,32 +572,127 @@ export default function EquipmentPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
-          <div className="p-4 sm:p-6 border-b border-stone-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex overflow-x-auto gap-1 hide-scrollbar">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === tab.value ? 'bg-stone-900 text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'}`}
+          <div className="p-4 sm:p-6 border-b border-stone-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+              <label className="block text-xs font-medium text-stone-600">
+                Status
+                <select
+                  value={activeTab}
+                  onChange={(event) => setActiveTab(event.target.value as EquipmentStatus | 'ALL')}
+                  className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  aria-label="Filter by status"
                 >
-                  {tab.label}
+                  {STATUS_TABS.map((tab) => (
+                    <option key={tab.value} value={tab.value}>
+                      {tab.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-medium text-stone-600">
+                Branch
+                <select
+                  value={selectedBranchFilter}
+                  onChange={(event) => setSelectedBranchFilter(event.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  aria-label="Filter by branch"
+                >
+                  {branchFilterOptions.map((branchName) => (
+                    <option key={branchName} value={branchName}>
+                      {branchName === 'ALL' ? 'All Branches' : branchName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-medium text-stone-600">
+                Area
+                <select
+                  value={selectedAreaFilter}
+                  onChange={(event) => setSelectedAreaFilter(event.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  aria-label="Filter by area"
+                >
+                  {areaFilterOptions.map((areaName) => (
+                    <option key={areaName} value={areaName}>
+                      {areaName === 'ALL' ? 'All Areas' : areaName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div ref={modelFilterRef} className="relative">
+                <p className="text-xs font-medium text-stone-600">Equipment Model</p>
+                <button
+                  type="button"
+                  onClick={() => setIsModelFilterOpen((open) => !open)}
+                  className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 text-left focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  aria-label="Filter by equipment model"
+                >
+                  {selectedModelFilters.length === 0
+                    ? 'All Models'
+                    : `Models (${selectedModelFilters.length})`}
                 </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 lg:w-64">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by QR, SKU, model..."
-                  className="placeholder-gray-600 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
-                />
+
+                {isModelFilterOpen ? (
+                  <div className="absolute left-0 right-0 mt-2 rounded-lg border border-stone-200 bg-white shadow-lg p-2 z-20">
+                    <label className="flex items-center gap-2 px-2 py-1.5 text-sm text-stone-700">
+                      <input
+                        type="checkbox"
+                        checked={selectedModelFilters.length === 0}
+                        onChange={() => setSelectedModelFilters([])}
+                      />
+                      All Models
+                    </label>
+
+                    <div className="my-1 border-t border-stone-100" />
+
+                    <div className="max-h-44 overflow-y-auto">
+                      {modelFilterOptions.map((modelName) => {
+                        const checked = selectedModelFilters.includes(modelName);
+
+                        return (
+                          <label
+                            key={modelName}
+                            className="flex items-center gap-2 px-2 py-1.5 text-sm text-stone-700 hover:bg-stone-50 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  setSelectedModelFilters((prev) => [...prev, modelName]);
+                                  return;
+                                }
+
+                                setSelectedModelFilters((prev) =>
+                                  prev.filter((value) => value !== modelName),
+                                );
+                              }}
+                            />
+                            {modelName}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-              <button className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors">
-                <FilterIcon className="w-4 h-4" />
-              </button>
+
+              <label className="block text-xs font-medium text-stone-600">
+                Search
+                <div className="relative mt-1">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="QR, SKU, model..."
+                    className="placeholder-gray-600 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
+                  />
+                </div>
+              </label>
             </div>
           </div>
 
