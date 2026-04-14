@@ -8,17 +8,20 @@ import {
     UserPlusIcon,
     SearchIcon,
     FilterIcon,
-    PlusIcon,
-    MoreVerticalIcon,
+    PencilIcon,
+    XIcon,
+    CheckIcon,
 } from 'lucide-react';
 
 import {
     fetchUserManagementAction,
     type UserManagementMetric,
+    type UserManagementEditableRole,
     type UserManagementRow,
+    updateUserRoleAction,
 } from '@/app/_actions/user-management';
 
-type RoleFilter = 'ALL' | 'Super Admin' | 'Admin' | 'Manager' | 'Viewer';
+type RoleFilter = 'ALL' | UserManagementEditableRole;
 
 const METRIC_ICONS = [UsersIcon, ShieldCheckIcon, ClockIcon, UserPlusIcon] as const;
 const METRIC_STYLES = [
@@ -30,8 +33,6 @@ const METRIC_STYLES = [
 
 function getRoleBadge(role: UserManagementRow['role']) {
     switch (role) {
-        case 'Super Admin':
-            return 'bg-violet-100 text-violet-800 border-violet-200';
         case 'Admin':
             return 'bg-blue-100 text-blue-800 border-blue-200';
         case 'Manager':
@@ -49,6 +50,13 @@ export function UserManagementContent() {
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
     const [error, setError] = useState<string | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserManagementRow | null>(null);
+    const [editingRole, setEditingRole] = useState<UserManagementEditableRole>('Viewer');
+    const [isSavingRole, setIsSavingRole] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
+    const [saveNotice, setSaveNotice] = useState<string | null>(null);
+    const [isSaveNoticeVisible, setIsSaveNoticeVisible] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -95,8 +103,89 @@ export function UserManagementContent() {
         });
     }, [roleFilter, search, users]);
 
+    useEffect(() => {
+        if (!saveNotice) {
+            return;
+        }
+
+        setIsSaveNoticeVisible(true);
+
+        const hideTimer = window.setTimeout(() => {
+            setIsSaveNoticeVisible(false);
+        }, 2400);
+
+        const clearTimer = window.setTimeout(() => {
+            setSaveNotice(null);
+        }, 2800);
+
+        return () => {
+            window.clearTimeout(hideTimer);
+            window.clearTimeout(clearTimer);
+        };
+    }, [saveNotice]);
+
+    function openEditModal(user: UserManagementRow) {
+        setEditingUser(user);
+        setEditingRole(user.role);
+        setEditError(null);
+        setIsEditModalOpen(true);
+    }
+
+    function closeEditModal() {
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+        setEditError(null);
+    }
+
+    async function handleSaveRole() {
+        if (!editingUser) {
+            return;
+        }
+
+        setIsSavingRole(true);
+        setEditError(null);
+
+        const result = await updateUserRoleAction(editingUser.id, editingRole);
+
+        if (!result.ok) {
+            setEditError(result.message);
+            setIsSavingRole(false);
+            return;
+        }
+
+        setUsers((currentUsers) =>
+            currentUsers.map((user) =>
+                user.id === editingUser.id
+                    ? {
+                        ...user,
+                        role: result.role,
+                    }
+                    : user,
+            ),
+        );
+
+        setSaveNotice(`${editingUser.name} role updated to ${result.role}.`);
+
+        setIsSavingRole(false);
+        closeEditModal();
+    }
+
     return (
         <div className="flex flex-col min-h-screen">
+            {saveNotice ? (
+                <div className="fixed right-4 top-4 z-[60] sm:right-6 sm:top-6" aria-live="polite" aria-atomic="true">
+                    <div
+                        className={`flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg transition-all duration-300 ${isSaveNoticeVisible ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'}`}
+                        role="status"
+                    >
+                        <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
+                            <CheckIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <p>{saveNotice}</p>
+                    </div>
+                </div>
+            ) : null}
+
             <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -122,20 +211,11 @@ export function UserManagementContent() {
                                 className="appearance-none pl-9 pr-8 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
                             >
                                 <option value="ALL">All Roles</option>
-                                <option value="Super Admin">Super Admin</option>
                                 <option value="Admin">Admin</option>
                                 <option value="Manager">Manager</option>
                                 <option value="Viewer">Viewer</option>
                             </select>
                         </div>
-                        <button
-                            type="button"
-                            disabled
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <PlusIcon className="w-4 h-4" />
-                            Add User
-                        </button>
                     </div>
                 </div>
 
@@ -175,7 +255,7 @@ export function UserManagementContent() {
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Status</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Created</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">Last Active</th>
-                                    <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-stone-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-stone-100">
@@ -209,10 +289,11 @@ export function UserManagementContent() {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <button
                                                 type="button"
-                                                disabled
-                                                className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:cursor-not-allowed"
+                                                onClick={() => openEditModal(user)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-stone-200 text-stone-700 bg-white hover:bg-stone-50 transition-colors"
                                             >
-                                                <MoreVerticalIcon className="w-5 h-5" />
+                                                <PencilIcon className="w-4 h-4" />
+                                                Edit
                                             </button>
                                         </td>
                                     </tr>
@@ -229,6 +310,78 @@ export function UserManagementContent() {
                         </table>
                     </div>
                 </div>
+
+                {isEditModalOpen && editingUser ? (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/45 px-4">
+                        <div className="w-full max-w-lg rounded-xl border border-stone-200 bg-white shadow-xl">
+                            <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                                <h2 className="text-base font-semibold text-stone-900">Edit User</h2>
+                                <button
+                                    type="button"
+                                    onClick={closeEditModal}
+                                    className="rounded-md p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
+                                    aria-label="Close"
+                                >
+                                    <XIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 px-5 py-4">
+                                <div>
+                                    <p className="text-xs font-medium text-stone-500">Name</p>
+                                    <p className="mt-1 text-sm text-stone-900">{editingUser.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-stone-500">Email</p>
+                                    <p className="mt-1 text-sm text-stone-900">{editingUser.email}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-stone-500">Status</p>
+                                    <p className="mt-1 text-sm text-stone-900">{editingUser.status}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-stone-500" htmlFor="edit-user-role">
+                                        Role
+                                    </label>
+                                    <select
+                                        id="edit-user-role"
+                                        value={editingRole}
+                                        onChange={(event) => setEditingRole(event.target.value as UserManagementEditableRole)}
+                                        className="mt-1 w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                                    >
+                                        <option value="Admin">Admin</option>
+                                        <option value="Manager">Manager</option>
+                                        <option value="Viewer">Viewer</option>
+                                    </select>
+                                </div>
+
+                                {editError ? (
+                                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                                        {editError}
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 border-t border-stone-200 px-5 py-4">
+                                <button
+                                    type="button"
+                                    onClick={closeEditModal}
+                                    className="px-3 py-1.5 text-sm font-medium text-stone-700 bg-stone-100 rounded-md hover:bg-stone-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleSaveRole()}
+                                    disabled={isSavingRole}
+                                    className="px-3 py-1.5 text-sm font-medium text-slate-900 bg-amber-400 rounded-md hover:bg-amber-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {isSavingRole ? 'Saving...' : 'Save changes'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </main>
         </div>
     );

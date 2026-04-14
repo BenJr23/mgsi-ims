@@ -11,17 +11,29 @@ export type UserManagementRow = {
     id: string;
     name: string;
     email: string;
-    role: 'Super Admin' | 'Admin' | 'Manager' | 'Viewer';
+    role: 'Admin' | 'Manager' | 'Viewer';
     status: 'Verified' | 'Pending';
     created: string;
     lastActive: string;
 };
+
+export type UserManagementEditableRole = UserManagementRow['role'];
 
 type FetchUserManagementResult =
     | {
         ok: true;
         metrics: UserManagementMetric[];
         users: UserManagementRow[];
+    }
+    | {
+        ok: false;
+        message: string;
+    };
+
+type UpdateUserRoleResult =
+    | {
+        ok: true;
+        role: UserManagementEditableRole;
     }
     | {
         ok: false;
@@ -38,6 +50,18 @@ function formatRole(role: 'ADMIN' | 'USER' | 'MANAGER'): UserManagementRow['role
     }
 
     return 'Viewer';
+}
+
+function parseRole(role: UserManagementEditableRole): 'ADMIN' | 'MANAGER' | 'USER' {
+    if (role === 'Admin') {
+        return 'ADMIN';
+    }
+
+    if (role === 'Manager') {
+        return 'MANAGER';
+    }
+
+    return 'USER';
 }
 
 function formatDate(value: Date): string {
@@ -133,6 +157,45 @@ export async function fetchUserManagementAction(): Promise<FetchUserManagementRe
         return {
             ok: false,
             message: 'Unable to load user management data right now.',
+        };
+    }
+}
+
+export async function updateUserRoleAction(
+    userId: string,
+    role: UserManagementEditableRole,
+): Promise<UpdateUserRoleResult> {
+    try {
+        if (!userId) {
+            return {
+                ok: false,
+                message: 'User id is required.',
+            };
+        }
+
+        await prisma.user.update({
+            where: {
+                id: userId,
+            },
+            data: {
+                role: parseRole(role),
+            },
+        });
+
+        return {
+            ok: true,
+            role,
+        };
+    } catch (error) {
+        console.error('[User Management Action] Failed to update user role', {
+            userId,
+            role,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+
+        return {
+            ok: false,
+            message: 'Unable to update role right now.',
         };
     }
 }
