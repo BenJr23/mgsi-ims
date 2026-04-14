@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
-import { SearchIcon, BellIcon, XIcon } from 'lucide-react';
+import { SearchIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { signOutAction } from '@/app/_actions/auth';
@@ -175,18 +175,6 @@ export function TopBar() {
 
         {/* Right Actions */}
         <div className="flex shrink-0 items-center gap-4">
-          <button
-            type="button"
-            className="relative p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors"
-            aria-label="View notifications">
-
-            <span
-              className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white"
-              aria-hidden="true" />
-
-            <BellIcon className="h-5 w-5" aria-hidden="true" />
-          </button>
-
           <div className="h-8 w-px bg-stone-200" aria-hidden="true" />
 
           <div ref={dropdownRef} className="relative">

@@ -27,8 +27,9 @@ import {
     WrenchIcon,
     ZapIcon,
     CircleDotIcon,
+    CheckCircle2Icon,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type EquipmentType = 'FURNITURE' | 'ELECTRONICS' | 'APPLIANCE' | 'TOOL' | 'OTHER';
 
@@ -80,6 +81,10 @@ export default function EquipmentModelsContent() {
     const [isDeletingModel, setIsDeletingModel] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [successNotice, setSuccessNotice] = useState<{
+        title: string;
+        message: string;
+    } | null>(null);
     const [viewModel, setViewModel] = useState<EquipmentModelListItem | null>(null);
     const [editModel, setEditModel] = useState<EquipmentModelListItem | null>(null);
     const [deleteModel, setDeleteModel] = useState<EquipmentModelListItem | null>(null);
@@ -264,6 +269,10 @@ export default function EquipmentModelsContent() {
 
             await loadEquipmentModels();
             setEditModel(null);
+            setSuccessNotice({
+                title: 'Edit successful',
+                message: `Successfully saved changes for equipment model: ${data.name.trim() || editModel.name}`,
+            });
         } catch {
             setError('Unable to update equipment model right now. Please try again.');
         } finally {
@@ -275,6 +284,8 @@ export default function EquipmentModelsContent() {
         if (!deleteModel) {
             return;
         }
+
+        const deletedModelName = deleteModel.name;
 
         setIsDeletingModel(true);
         setError(null);
@@ -291,6 +302,10 @@ export default function EquipmentModelsContent() {
 
             await loadEquipmentModels();
             setDeleteModel(null);
+            setSuccessNotice({
+                title: 'Delete successful',
+                message: `Successfully deleted equipment model: ${deletedModelName}`,
+            });
         } catch {
             setError('Unable to delete equipment model right now. Please try again.');
         } finally {
@@ -332,6 +347,20 @@ export default function EquipmentModelsContent() {
             window.removeEventListener('keydown', handleEscape);
         };
     }, [openMenu]);
+
+    useEffect(() => {
+        if (!successNotice) {
+            return;
+        }
+
+        const timerId = window.setTimeout(() => {
+            setSuccessNotice(null);
+        }, 2800);
+
+        return () => {
+            window.clearTimeout(timerId);
+        };
+    }, [successNotice]);
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -520,6 +549,30 @@ export default function EquipmentModelsContent() {
                       document.body,
                   )
                 : null}
+
+            <AnimatePresence>
+                {successNotice ? (
+                    <motion.div
+                        initial={{ x: 280, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 280, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                        className="fixed top-6 right-6 z-130 w-full max-w-sm rounded-xl border border-emerald-200 bg-white shadow-xl"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <div className="flex items-start gap-3 p-4">
+                            <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-600">
+                                <CheckCircle2Icon className="w-4 h-4" aria-hidden="true" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-emerald-700">{successNotice.title}</p>
+                                <p className="text-sm text-stone-700 mt-0.5">{successNotice.message}</p>
+                            </div>
+                        </div>
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
 
             <AddModelModal
                 isOpen={isAddModelModalOpen}
