@@ -441,12 +441,13 @@ export default function EquipmentPage() {
       return;
     }
 
-    
+
     setSelectedEquipment(target);
     setIsDeleteEquipmentModalOpen(true);
     setOpenMenu(null);
   };
 
+  
   const handleDeleteEquipmentConfirm = async () => {
     if (!selectedEquipment) {
       return;
