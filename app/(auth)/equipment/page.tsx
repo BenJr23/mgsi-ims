@@ -441,6 +441,7 @@ export default function EquipmentPage() {
       return;
     }
 
+    
     setSelectedEquipment(target);
     setIsDeleteEquipmentModalOpen(true);
     setOpenMenu(null);
