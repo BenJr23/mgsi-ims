@@ -62,11 +62,7 @@ function ReportsViewSkeleton() {
 }
 
 export default async function ReportsPage() {
-  return (
-    <Suspense fallback={<ReportsViewSkeleton />}>
-      <ReportsContent />
-    </Suspense>
-  );
+  return <ReportsContent />;
 }
 
 async function ReportsContent() {

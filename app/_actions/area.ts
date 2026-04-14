@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 
@@ -91,12 +92,30 @@ async function invalidateBranchesCache(): Promise<void> {
 	}
 }
 
+async function logAreaAudit(input: {
+	action: string;
+	status: "SUCCESS" | "FAILED";
+	message: string;
+	userId?: string | null;
+	severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}) {
+	await createAuditLog({
+		action: input.action,
+		module: "Branches & Areas",
+		status: input.status,
+		severity: input.severity ?? (input.status === "SUCCESS" ? "LOW" : "MEDIUM"),
+		message: input.message,
+		userId: input.userId ?? null,
+	});
+}
+
 export async function createAreaAction(input: {
 	externalBranchId: string;
 	roomName: string;
 	roomCode: string | null;
 }): Promise<CreateAreaResult> {
 	const traceId = `area_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		// Get current user session
@@ -114,6 +133,12 @@ export async function createAreaAction(input: {
 
 		if (!session || !session.user) {
 			console.warn("[Area Action] Unauthorized access attempt", { traceId });
+			await logAreaAudit({
+				action: "Create area",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized create area attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to create an area.",
@@ -121,6 +146,7 @@ export async function createAreaAction(input: {
 		}
 
 		const userId = session.user.id;
+		auditUserId = userId;
 
 		// Validate input
 		if (!input.externalBranchId || !input.roomName.trim()) {
@@ -128,6 +154,12 @@ export async function createAreaAction(input: {
 				traceId,
 				externalBranchId: input.externalBranchId,
 				roomName: input.roomName,
+			});
+			await logAreaAudit({
+				action: "Create area",
+				status: "FAILED",
+				message: "Create failed: External branch ID and room name are required.",
+				userId,
 			});
 			return {
 				ok: false,
@@ -173,6 +205,13 @@ export async function createAreaAction(input: {
 		// Invalidate cache so next refetch gets fresh data including this new area
 		await invalidateBranchesCache();
 
+		await logAreaAudit({
+			action: "Create area",
+			status: "SUCCESS",
+			message: `Created area ${area.roomName} (${area.id}) in branch ${input.externalBranchId}.`,
+			userId,
+		});
+
 		return {
 			ok: true,
 			areaId: area.id,
@@ -191,6 +230,12 @@ export async function createAreaAction(input: {
 
 		// Check if it's a unique constraint violation (duplicate roomCode per branch)
 		if (errorMessage.includes("Unique constraint failed")) {
+			await logAreaAudit({
+				action: "Create area",
+				status: "FAILED",
+				message: "Create failed: Duplicate room code within branch.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message:
@@ -200,11 +245,25 @@ export async function createAreaAction(input: {
 
 		// Check for other known error patterns
 		if (errorMessage.includes("Foreign key constraint failed")) {
+			await logAreaAudit({
+				action: "Create area",
+				status: "FAILED",
+				message: "Create failed: Invalid branch reference.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "Invalid branch reference. Please refresh and try again.",
 			};
 		}
+
+		await logAreaAudit({
+			action: "Create area",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Create failed: ${errorMessage}`,
+			userId: auditUserId,
+		});
 
 		return {
 			ok: false,
@@ -219,6 +278,7 @@ export async function updateAreaAction(input: {
 	roomCode: string | null;
 }): Promise<UpdateAreaResult> {
 	const traceId = `area_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		console.log("[Area Action] Attempting to get user session for update", {
@@ -230,13 +290,27 @@ export async function updateAreaAction(input: {
 
 		if (!session || !session.user) {
 			console.warn("[Area Action] Unauthorized area update attempt", { traceId });
+			await logAreaAudit({
+				action: "Update area",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized update area attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to update an area.",
 			};
 		}
 
+		auditUserId = session.user.id;
+
 		if (!input.areaId || !input.roomName.trim()) {
+			await logAreaAudit({
+				action: "Update area",
+				status: "FAILED",
+				message: "Update failed: Area ID and room name are required.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "Area ID and room name are required.",
@@ -258,6 +332,12 @@ export async function updateAreaAction(input: {
 		});
 
 		if (!existingArea) {
+			await logAreaAudit({
+				action: "Update area",
+				status: "FAILED",
+				message: `Update failed: Area ${input.areaId} not found.`,
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "Area not found or has already been deleted.",
@@ -288,6 +368,13 @@ export async function updateAreaAction(input: {
 
 		await invalidateBranchesCache();
 
+		await logAreaAudit({
+			action: "Update area",
+			status: "SUCCESS",
+			message: `Updated area ${area.roomName} (${area.id}).`,
+			userId: auditUserId,
+		});
+
 		return {
 			ok: true,
 			areaId: area.id,
@@ -303,12 +390,26 @@ export async function updateAreaAction(input: {
 		});
 
 		if (errorMessage.includes("Unique constraint failed")) {
+			await logAreaAudit({
+				action: "Update area",
+				status: "FAILED",
+				message: "Update failed: Duplicate room code within branch.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message:
 					"An area with this room code already exists in this branch.",
 			};
 		}
+
+		await logAreaAudit({
+			action: "Update area",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Update failed: ${errorMessage}`,
+			userId: auditUserId,
+		});
 
 		return {
 			ok: false,
@@ -321,6 +422,7 @@ export async function deleteAreaAction(input: {
 	areaId: string;
 }): Promise<DeleteAreaResult> {
 	const traceId = `area_delete_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		console.log("[Area Action] Attempting to get user session for delete", {
@@ -332,13 +434,27 @@ export async function deleteAreaAction(input: {
 
 		if (!session || !session.user) {
 			console.warn("[Area Action] Unauthorized area delete attempt", { traceId });
+			await logAreaAudit({
+				action: "Delete area",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized delete area attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to delete an area.",
 			};
 		}
 
+		auditUserId = session.user.id;
+
 		if (!input.areaId) {
+			await logAreaAudit({
+				action: "Delete area",
+				status: "FAILED",
+				message: "Delete failed: Area ID is required.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "Area ID is required.",
@@ -356,6 +472,12 @@ export async function deleteAreaAction(input: {
 		});
 
 		if (!existingArea) {
+			await logAreaAudit({
+				action: "Delete area",
+				status: "FAILED",
+				message: `Delete failed: Area ${input.areaId} not found.`,
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "Area not found or has already been deleted.",
@@ -381,6 +503,13 @@ export async function deleteAreaAction(input: {
 
 		await invalidateBranchesCache();
 
+		await logAreaAudit({
+			action: "Delete area",
+			status: "SUCCESS",
+			message: `Deleted area ${area.id}.`,
+			userId: auditUserId,
+		});
+
 		return {
 			ok: true,
 			areaId: area.id,
@@ -393,6 +522,14 @@ export async function deleteAreaAction(input: {
 		console.error("[Area Action] Delete failed", {
 			traceId,
 			error: errorMessage,
+		});
+
+		await logAreaAudit({
+			action: "Delete area",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Delete failed: ${errorMessage}`,
+			userId: auditUserId,
 		});
 
 		return {
