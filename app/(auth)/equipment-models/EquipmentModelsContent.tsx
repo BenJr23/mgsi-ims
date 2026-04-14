@@ -206,10 +206,6 @@ export default function EquipmentModelsContent() {
         });
     };
 
-    const handleMenuAction = () => {
-        setOpenMenu(null);
-    };
-
     const handleOpenViewModel = (modelId: string) => {
         const selectedModel = models.find((model) => model.id === modelId);
         if (!selectedModel) {
@@ -458,53 +454,61 @@ export default function EquipmentModelsContent() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-stone-100">
-                                {filtered.map((model) => {
-                                    const TypeIcon = getTypeIcon(model.type);
-                                    return (
-                                        <tr key={model.id} className="hover:bg-stone-50/80 transition-colors group">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 shrink-0 bg-stone-100 rounded-lg border border-stone-200 flex items-center justify-center">
-                                                        <TypeIcon className="w-5 h-5 text-stone-400" />
+                                {filtered.length > 0 ? (
+                                    filtered.map((model) => {
+                                        const TypeIcon = getTypeIcon(model.type);
+                                        return (
+                                            <tr key={model.id} className="hover:bg-stone-50/80 transition-colors group">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 shrink-0 bg-stone-100 rounded-lg border border-stone-200 flex items-center justify-center">
+                                                            <TypeIcon className="w-5 h-5 text-stone-400" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-stone-900">{model.name}</p>
+                                                            <p className="text-xs text-stone-500 max-w-xs truncate">{model.description}</p>
+                                                        </div>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getTypeBadge(model.type)}`}
+                                                    >
+                                                        {model.type.charAt(0) + model.type.slice(1).toLowerCase()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-sm text-stone-600">{model.unitCount}</span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
                                                     <div>
-                                                        <p className="text-sm font-medium text-stone-900">{model.name}</p>
-                                                        <p className="text-xs text-stone-500 max-w-xs truncate">{model.description}</p>
+                                                        <p className="text-sm text-stone-500">{model.createdAt}</p>
+                                                        <p className="text-xs text-stone-400">{model.createdBy}</p>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span
-                                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getTypeBadge(model.type)}`}
-                                                >
-                                                    {model.type.charAt(0) + model.type.slice(1).toLowerCase()}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="text-sm text-stone-600">{model.unitCount}</span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <p className="text-sm text-stone-500">{model.createdAt}</p>
-                                                    <p className="text-xs text-stone-400">{model.createdBy}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button
-                                                    type="button"
-                                                    data-row-action-trigger
-                                                    onClick={(event) => toggleActionMenu(model.id, event.currentTarget)}
-                                                    className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none"
-                                                    aria-label={`Actions for ${model.name}`}
-                                                    aria-expanded={openMenu?.modelId === model.id}
-                                                >
-                                                    <MoreVerticalIcon className="w-5 h-5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <button
+                                                        type="button"
+                                                        data-row-action-trigger
+                                                        onClick={(event) => toggleActionMenu(model.id, event.currentTarget)}
+                                                        className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none"
+                                                        aria-label={`Actions for ${model.name}`}
+                                                        aria-expanded={openMenu?.modelId === model.id}
+                                                    >
+                                                        <MoreVerticalIcon className="w-5 h-5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td className="px-6 py-10 text-center text-sm text-stone-500" colSpan={6}>
+                                            {isLoading ? 'Loading models...' : 'No models found.'}
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

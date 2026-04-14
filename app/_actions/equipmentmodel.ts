@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 
@@ -128,6 +129,23 @@ const VALID_EQUIPMENT_TYPES: EquipmentType[] = [
 	"TOOL",
 	"OTHER",
 ];
+
+async function logEquipmentModelAudit(input: {
+	action: string;
+	status: "SUCCESS" | "FAILED";
+	message: string;
+	userId?: string | null;
+	severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}) {
+	await createAuditLog({
+		action: input.action,
+		module: "Equipment Models",
+		status: input.status,
+		severity: input.severity ?? (input.status === "SUCCESS" ? "LOW" : "MEDIUM"),
+		message: input.message,
+		userId: input.userId ?? null,
+	});
+}
 
 export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModelsResult> {
 	const traceId = `equipment_model_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -275,6 +293,12 @@ export async function createEquipmentModelAction(input: {
 
 		if (!session?.user) {
 			console.warn("[EquipmentModel Action] Unauthorized create attempt", { traceId });
+			await logEquipmentModelAudit({
+				action: "Create equipment model",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized create attempt for equipment model.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to create an equipment model.",
@@ -286,6 +310,12 @@ export async function createEquipmentModelAction(input: {
 		const normalizedPrice = input.price?.trim();
 
 		if (!normalizedName) {
+			await logEquipmentModelAudit({
+				action: "Create equipment model",
+				status: "FAILED",
+				message: "Create failed: Model name is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Model name is required.",
@@ -293,6 +323,12 @@ export async function createEquipmentModelAction(input: {
 		}
 
 		if (!VALID_EQUIPMENT_TYPES.includes(input.type)) {
+			await logEquipmentModelAudit({
+				action: "Create equipment model",
+				status: "FAILED",
+				message: `Create failed: Invalid equipment type (${input.type}).`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Invalid equipment type.",
@@ -303,6 +339,12 @@ export async function createEquipmentModelAction(input: {
 		if (normalizedPrice) {
 			parsedPrice = Number(normalizedPrice);
 			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+				await logEquipmentModelAudit({
+					action: "Create equipment model",
+					status: "FAILED",
+					message: "Create failed: Invalid price provided.",
+					userId: session.user.id,
+				});
 				return {
 					ok: false,
 					message: "Price must be a valid non-negative number.",
@@ -332,6 +374,13 @@ export async function createEquipmentModelAction(input: {
 
 		await invalidateEquipmentModelsCache();
 
+		await logEquipmentModelAudit({
+			action: "Create equipment model",
+			status: "SUCCESS",
+			message: `Created equipment model ${equipmentModel.name} (${equipmentModel.id}).`,
+			userId: session.user.id,
+		});
+
 		return {
 			ok: true,
 			equipmentModelId: equipmentModel.id,
@@ -343,6 +392,13 @@ export async function createEquipmentModelAction(input: {
 		console.error("[EquipmentModel Action] Create failed", {
 			traceId,
 			error: errorMessage,
+		});
+
+		await logEquipmentModelAudit({
+			action: "Create equipment model",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Create failed: ${errorMessage}`,
 		});
 
 		return {
@@ -368,6 +424,12 @@ export async function updateEquipmentModelAction(input: {
 
 		if (!session?.user) {
 			console.warn("[EquipmentModel Action] Unauthorized update attempt", { traceId });
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized update attempt for equipment model.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to update an equipment model.",
@@ -380,6 +442,12 @@ export async function updateEquipmentModelAction(input: {
 		const normalizedPrice = input.price?.trim();
 
 		if (!equipmentModelId) {
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				message: "Update failed: Equipment model ID is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment model ID is required.",
@@ -387,6 +455,12 @@ export async function updateEquipmentModelAction(input: {
 		}
 
 		if (!normalizedName) {
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				message: "Update failed: Model name is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Model name is required.",
@@ -394,6 +468,12 @@ export async function updateEquipmentModelAction(input: {
 		}
 
 		if (!VALID_EQUIPMENT_TYPES.includes(input.type)) {
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				message: `Update failed: Invalid equipment type (${input.type}).`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Invalid equipment type.",
@@ -404,6 +484,12 @@ export async function updateEquipmentModelAction(input: {
 		if (normalizedPrice) {
 			parsedPrice = Number(normalizedPrice);
 			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+				await logEquipmentModelAudit({
+					action: "Update equipment model",
+					status: "FAILED",
+					message: "Update failed: Invalid price provided.",
+					userId: session.user.id,
+				});
 				return {
 					ok: false,
 					message: "Price must be a valid non-negative number.",
@@ -418,10 +504,17 @@ export async function updateEquipmentModelAction(input: {
 			},
 			select: {
 				id: true,
+				name: true,
 			},
 		});
 
 		if (!existingModel) {
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				message: `Update failed: Equipment model ${equipmentModelId} not found.`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment model not found or has already been deleted.",
@@ -452,6 +545,13 @@ export async function updateEquipmentModelAction(input: {
 
 		await invalidateEquipmentModelsCache();
 
+		await logEquipmentModelAudit({
+			action: "Update equipment model",
+			status: "SUCCESS",
+			message: `Updated equipment model ${existingModel.name} (${updatedModel.id}).`,
+			userId: session.user.id,
+		});
+
 		return {
 			ok: true,
 			equipmentModelId: updatedModel.id,
@@ -463,6 +563,13 @@ export async function updateEquipmentModelAction(input: {
 		console.error("[EquipmentModel Action] Update failed", {
 			traceId,
 			error: errorMessage,
+		});
+
+		await logEquipmentModelAudit({
+			action: "Update equipment model",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Update failed: ${errorMessage}`,
 		});
 
 		return {
@@ -484,6 +591,12 @@ export async function deleteEquipmentModelAction(input: {
 
 		if (!session?.user) {
 			console.warn("[EquipmentModel Action] Unauthorized delete attempt", { traceId });
+			await logEquipmentModelAudit({
+				action: "Delete equipment model",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized delete attempt for equipment model.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to delete an equipment model.",
@@ -492,6 +605,12 @@ export async function deleteEquipmentModelAction(input: {
 
 		const equipmentModelId = input.equipmentModelId?.trim();
 		if (!equipmentModelId) {
+			await logEquipmentModelAudit({
+				action: "Delete equipment model",
+				status: "FAILED",
+				message: "Delete failed: Equipment model ID is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment model ID is required.",
@@ -505,13 +624,41 @@ export async function deleteEquipmentModelAction(input: {
 			},
 			select: {
 				id: true,
+				name: true,
 			},
 		});
 
 		if (!existingModel) {
+			await logEquipmentModelAudit({
+				action: "Delete equipment model",
+				status: "FAILED",
+				message: `Delete failed: Equipment model ${equipmentModelId} not found.`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment model not found or has already been deleted.",
+			};
+		}
+
+		const linkedEquipmentCount = await prisma.equipment.count({
+			where: {
+				equipmentModelId,
+				deletedAt: null,
+			},
+		});
+
+		if (linkedEquipmentCount > 0) {
+			await logEquipmentModelAudit({
+				action: "Delete equipment model",
+				status: "FAILED",
+				message: `Delete blocked: Model ${existingModel.name} has ${linkedEquipmentCount} tagged equipment.`,
+				userId: session.user.id,
+			});
+
+			return {
+				ok: false,
+				message: "Cannot delete this model because equipment is still tagged to it.",
 			};
 		}
 
@@ -534,6 +681,13 @@ export async function deleteEquipmentModelAction(input: {
 
 		await invalidateEquipmentModelsCache();
 
+		await logEquipmentModelAudit({
+			action: "Delete equipment model",
+			status: "SUCCESS",
+			message: `Deleted equipment model ${existingModel.name} (${deletedModel.id}).`,
+			userId: session.user.id,
+		});
+
 		return {
 			ok: true,
 			equipmentModelId: deletedModel.id,
@@ -545,6 +699,13 @@ export async function deleteEquipmentModelAction(input: {
 		console.error("[EquipmentModel Action] Delete failed", {
 			traceId,
 			error: errorMessage,
+		});
+
+		await logEquipmentModelAudit({
+			action: "Delete equipment model",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Delete failed: ${errorMessage}`,
 		});
 
 		return {
