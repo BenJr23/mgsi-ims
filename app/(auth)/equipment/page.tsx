@@ -255,6 +255,7 @@ export default function EquipmentPage() {
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
+    quantity: number;
   }) => {
     setIsSubmittingEquipment(true);
     setError(null);

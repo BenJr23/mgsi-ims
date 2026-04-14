@@ -12,6 +12,7 @@ type CreateEquipmentResult =
 	| {
 			ok: true;
 			equipmentId: string;
+			createdCount: number;
 			message: string;
 		}
 	| {
@@ -289,6 +290,7 @@ export async function createEquipmentAction(input: {
 	equipmentModelId: string;
 	status: EquipmentStatus;
 	areaId: string; // areaId is now a plain string
+	quantity: number;
 }): Promise<CreateEquipmentResult> {
 	const traceId = `equipment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -308,8 +310,9 @@ export async function createEquipmentAction(input: {
 		const normalizedEquipmentModelId = input.equipmentModelId?.trim();
 		const normalizedAreaId = input.areaId?.trim();
 		const normalizedStatus = input.status?.trim();
-		const generatedSku = generateEquipmentSku();
-		const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
+		const requestedQuantity = Number.isFinite(input.quantity)
+			? Math.trunc(input.quantity)
+			: 0;
 
 		if (!normalizedEquipmentModelId) {
 			return {
@@ -329,6 +332,13 @@ export async function createEquipmentAction(input: {
 			return {
 				ok: false,
 				message: "Invalid equipment status.",
+			};
+		}
+
+		if (requestedQuantity < 1 || requestedQuantity > 200) {
+			return {
+				ok: false,
+				message: "Quantity must be between 1 and 200.",
 			};
 		}
 
@@ -352,35 +362,47 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
-		const equipment = await prisma.equipment.create({
-			data: {
-				qrCode: generatedQrCode,
-				sku: generatedSku,
-				equipmentModelId: normalizedEquipmentModelId,
-				status: normalizedStatus,
-				areaId: normalizedAreaId, // areaId is now stored as a plain string
-				createdById: session.user.id,
-			},
-			select: {
-				id: true,
-				qrCode: true,
-				sku: true,
-			},
-		});
+		const createdEquipment = await prisma.$transaction(
+			Array.from({ length: requestedQuantity }, () => {
+				const generatedSku = generateEquipmentSku();
+				const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
+
+				return prisma.equipment.create({
+					data: {
+						qrCode: generatedQrCode,
+						sku: generatedSku,
+						equipmentModelId: normalizedEquipmentModelId,
+						status: normalizedStatus,
+						areaId: normalizedAreaId,
+						createdById: session.user.id,
+					},
+					select: {
+						id: true,
+						sku: true,
+						qrCode: true,
+					},
+				});
+			}),
+		);
+
+		const firstCreated = createdEquipment[0];
 
 		console.log("[Equipment Action] Equipment created successfully", {
 			traceId,
-			equipmentId: equipment.id,
-			sku: equipment.sku,
-			qrCode: equipment.qrCode,
+			createdCount: createdEquipment.length,
+			firstEquipmentId: firstCreated?.id,
 		});
 
 		await invalidateEquipmentCaches();
 
 		return {
 			ok: true,
-			equipmentId: equipment.id,
-			message: "Equipment created successfully.",
+			equipmentId: firstCreated.id,
+			createdCount: createdEquipment.length,
+			message:
+				createdEquipment.length === 1
+					? "Equipment created successfully."
+					: `${createdEquipment.length} equipment items created successfully.`,
 		};
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown error";

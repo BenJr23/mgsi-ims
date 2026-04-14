@@ -11,6 +11,7 @@ interface RegisterEquipmentModalProps {
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
+    quantity: number;
   }) => Promise<boolean>;
   isSubmitting?: boolean;
   models: {
@@ -182,16 +183,22 @@ export function RegisterEquipmentModal({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    const formElement = e.currentTarget;
+    const formData = new FormData(formElement);
+    const rawQuantity = Number.parseInt(String(formData.get('quantity') ?? '1'), 10);
+    const normalizedQuantity = Number.isFinite(rawQuantity)
+      ? Math.max(1, Math.min(rawQuantity, 200))
+      : 1;
 
     const result = await onSubmit({
       equipmentModelId: selectedModelId,
       status: formData.get('status') as EquipmentStatus,
       areaId: selectedAreaId,
+      quantity: normalizedQuantity,
     });
 
     if (result) {
-      e.currentTarget.reset();
+      formElement.reset();
       closeModal();
     }
   };
@@ -336,6 +343,25 @@ export function RegisterEquipmentModal({
                       disabled={isSubmitting || areas.length === 0}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="equip-quantity" className="block text-sm font-medium text-black">
+                    Quantity <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    id="equip-quantity"
+                    name="quantity"
+                    type="number"
+                    min={1}
+                    max={200}
+                    step={1}
+                    required
+                    defaultValue={1}
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white"
+                  />
+                  <p className="text-xs text-stone-500">Creates multiple equipment items with generated SKU and QR links.</p>
                 </div>
               </div>
 
