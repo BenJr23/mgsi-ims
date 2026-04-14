@@ -166,8 +166,7 @@ export async function signInWithEmailAction(input: {
             },
           });
         }
-
-        
+    
         const credentialAccount = localUser.accounts[0];
         if (!credentialAccount) {
           await prisma.account.create({
