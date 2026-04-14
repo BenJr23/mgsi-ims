@@ -41,15 +41,15 @@ export async function getCurrentUserWithCompany() {
             email: true,
             image: true,
             phoneNumber: true,
-            companies: {
-                select: {
-                    name: true,
-                },
-            },
         },
     });
 
-    return user;
+    if (!user) return null;
+
+    return {
+        ...user,
+        companyId: null,
+    };
 }
 
 /**
