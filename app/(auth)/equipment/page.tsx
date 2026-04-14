@@ -78,6 +78,20 @@ function formatEquipmentQrLink(qrCode: string): string {
   }
 }
 
+function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
+  if (sku?.trim()) {
+    return sku;
+  }
+
+  try {
+    const parsedUrl = new URL(formatEquipmentQrLink(qrCode));
+    const lastSegment = parsedUrl.pathname.split('/').filter(Boolean).pop();
+    return lastSegment ? decodeURIComponent(lastSegment) : qrCode;
+  } catch {
+    return qrCode;
+  }
+}
+
 export default function EquipmentPage() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -543,14 +557,12 @@ export default function EquipmentPage() {
               <tbody className="bg-white divide-y divide-stone-100">
                 {filteredEquipment.map((item) => {
                   const StatusIcon = getStatusIcon(item.status);
+                  const qrLink = formatEquipmentQrLink(item.qrCode);
+                  const qrDisplay = getEquipmentQrDisplay(item.sku, item.qrCode);
 
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/80 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {(() => {
-                          const qrLink = formatEquipmentQrLink(item.qrCode);
-
-                          return (
                         <a
                           href={qrLink}
                           target="_blank"
@@ -559,10 +571,8 @@ export default function EquipmentPage() {
                           title={qrLink}
                         >
                           <QrCodeIcon className="w-4 h-4 text-blue-600" />
-                          {qrLink}
+                          {qrDisplay}
                         </a>
-                          );
-                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
