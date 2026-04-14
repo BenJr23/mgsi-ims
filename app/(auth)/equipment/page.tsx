@@ -403,11 +403,11 @@ export default function EquipmentPage() {
     for (let i = 0; i < quantity; i++) {
       labelsHtml += `
         <div class="label">
+          <img class="logo" src="${logoUrl}" alt="Great Work logo" />
           <div class="meta"><strong>${item.modelName}</strong></div>
           <div class="qr-code">
             <img class="qr-image" src="${qrDataUrl}" alt="QR code" />
           </div>
-          <img class="logo" src="${logoUrl}" alt="Great Work logo" />
           <div class="qr-value">${item.qrCode}</div>
         </div>
       `;
@@ -531,6 +531,173 @@ export default function EquipmentPage() {
     printWindow.document.close();
   };
 
+  const handlePrintFilteredEquipment = async () => {
+    if (filteredEquipment.length === 0) {
+      setError('No filtered equipment records available to print.');
+      return;
+    }
+
+    if (filteredEquipment.length > 300) {
+      setError('Please narrow the filters to 300 items or fewer before printing.');
+      return;
+    }
+
+    setError(null);
+
+    let itemsWithQr: Array<EquipmentListItem & { qrDataUrl: string }> = [];
+    try {
+      const QRCodeLib = await import('qrcode');
+      itemsWithQr = await Promise.all(
+        filteredEquipment.map(async (item) => ({
+          ...item,
+          qrDataUrl: await QRCodeLib.toDataURL(item.qrCode, {
+            width: 320,
+            margin: 1,
+            errorCorrectionLevel: 'H',
+          }),
+        })),
+      );
+    } catch {
+      setError('Unable to generate bulk QR code images for printing right now.');
+      return;
+    }
+
+    const printWindow = window.open('', '', 'width=1200,height=900');
+    if (!printWindow) {
+      setError('Please allow pop-ups to print filtered equipment QR labels.');
+      return;
+    }
+
+    const logoUrl = new URL('/logo/GWlogo.webp', window.location.origin).toString();
+
+    const labelsHtml = itemsWithQr
+      .map(
+        (item) => `
+        <div class="label">
+          <img class="logo" src="${logoUrl}" alt="Great Work logo" />
+          <div class="meta"><strong>${item.modelName}</strong></div>
+          <div class="sub">${item.sku ?? 'No SKU'}</div>
+          <div class="qr-code">
+            <img class="qr-image" src="${item.qrDataUrl}" alt="QR code" />
+          </div>
+          <div class="qr-value">${item.qrCode}</div>
+        </div>
+      `,
+      )
+      .join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Print Filtered Equipment (${itemsWithQr.length})</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            padding: 20px;
+          }
+          .print-ui {
+            text-align: center;
+            margin-bottom: 12px;
+          }
+          .print-btn {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 700;
+          }
+          .print-note {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #475569;
+          }
+          .sheet {
+            width: 8.5in;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 2.6in);
+            column-gap: 0.12in;
+            row-gap: 0.12in;
+            justify-content: center;
+          }
+          .label {
+            width: 2.5in;
+            min-height: 2.9in;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px;
+          }
+          .meta {
+            width: 100%;
+            text-align: center;
+            color: #0f172a;
+            font-size: 12px;
+          }
+          .sub {
+            width: 100%;
+            text-align: center;
+            color: #64748b;
+            font-size: 11px;
+            font-family: monospace;
+          }
+          .qr-code {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .qr-image {
+            width: 200px;
+            height: 200px;
+          }
+          .logo {
+            width: 0.88in;
+            height: 0.18in;
+            object-fit: contain;
+          }
+          .qr-value {
+            font-family: monospace;
+            font-size: 11px;
+            color: #334155;
+            word-break: break-all;
+            text-align: center;
+          }
+          @media print {
+            @page { size: auto; margin: 0.2in; }
+            body { background: #ffffff; padding: 0; }
+            .print-ui { display: none; }
+            .label { border: 1px solid #000; border-radius: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-ui">
+          <button class="print-btn" onclick="window.print()">Print ${itemsWithQr.length} Filtered QR Label(s)</button>
+          <div class="print-note">Preview based on current filters in Equipment list.</div>
+        </div>
+        <div class="sheet">
+          ${labelsHtml}
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
@@ -544,7 +711,13 @@ export default function EquipmentPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
+            <button
+              onClick={() => {
+                void handlePrintFilteredEquipment();
+              }}
+              disabled={isLoadingEquipment || filteredEquipment.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm"
+            >
               <DownloadIcon className="w-4 h-4" />
               Export
             </button>
