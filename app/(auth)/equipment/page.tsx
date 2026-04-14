@@ -70,9 +70,11 @@ function formatStatus(status: EquipmentStatus) {
 function formatEquipmentQrLink(qrCode: string): string {
   try {
     const parsedUrl = new URL(qrCode);
-    return `${parsedUrl.pathname}${parsedUrl.search}`;
+    return `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}${parsedUrl.search}`;
   } catch {
-    return qrCode;
+    return qrCode.startsWith('http://') || qrCode.startsWith('https://')
+      ? qrCode
+      : `https://${qrCode}`;
   }
 }
 
@@ -545,16 +547,22 @@ export default function EquipmentPage() {
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/80 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
+                        {(() => {
+                          const qrLink = formatEquipmentQrLink(item.qrCode);
+
+                          return (
                         <a
-                          href={item.qrCode}
+                          href={qrLink}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
-                          title={item.qrCode}
+                          title={qrLink}
                         >
                           <QrCodeIcon className="w-4 h-4 text-blue-600" />
-                          {formatEquipmentQrLink(item.qrCode)}
+                          {qrLink}
                         </a>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>

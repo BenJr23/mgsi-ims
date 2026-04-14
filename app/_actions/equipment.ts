@@ -49,7 +49,13 @@ const EQUIPMENT_CACHE_TTL_SECONDS = 300;
 const EQUIPMENT_ROUTE_PREFIX = "/equipment";
 
 function getAppBaseUrl(): string {
-	return process.env.VERCEL_URL?.trim() || "http://localhost:3000";
+	const configuredUrl = process.env.VERCEL_URL?.trim() || "localhost:3000";
+
+	if (/^https?:\/\//i.test(configuredUrl)) {
+		return configuredUrl.replace(/\/$/, "");
+	}
+
+	return `https://${configuredUrl.replace(/\/$/, "")}`;
 }
 
 function generateEquipmentSku(): string {
