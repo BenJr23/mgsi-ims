@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -45,6 +45,117 @@ const STATUS_OPTIONS: {
     },
   ];
 
+type SearchableOption = {
+  id: string;
+  name: string;
+};
+
+function SearchableSelect({
+  id,
+  name,
+  options,
+  selectedId,
+  onSelect,
+  placeholder,
+  disabled = false,
+}: {
+  id: string;
+  name: string;
+  options: SearchableOption[];
+  selectedId: string;
+  onSelect: (value: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = useMemo(
+    () => options.find((option) => option.id === selectedId) ?? null,
+    [options, selectedId],
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = inputValue.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return options;
+    }
+
+    return options.filter((option) => option.name.toLowerCase().includes(normalizedQuery));
+  }, [options, inputValue]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    setInputValue(selectedOption?.name ?? '');
+  }, [selectedOption]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <input type="hidden" id={id} name={name} value={selectedId} />
+
+      <input
+        type="text"
+        disabled={disabled}
+        value={inputValue}
+        onFocus={() => setIsOpen(true)}
+        onChange={(event) => {
+          const value = event.target.value;
+          setInputValue(value);
+          setIsOpen(true);
+
+          const exactMatch = options.find(
+            (option) => option.name.toLowerCase() === value.trim().toLowerCase(),
+          );
+
+          onSelect(exactMatch?.id ?? '');
+        }}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-left text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white disabled:bg-stone-100 disabled:text-stone-400"
+      />
+
+      {isOpen && !disabled && (
+        <div className="mt-2 w-full rounded-lg border border-stone-200 bg-white shadow-sm">
+          <ul className="max-h-40 overflow-y-auto py-1">
+            {filteredOptions.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-stone-500">No results found</li>
+            ) : (
+              filteredOptions.map((option) => (
+                <li key={option.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelect(option.id);
+                      setInputValue(option.name);
+                      setIsOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-black hover:bg-amber-50 transition-colors"
+                  >
+                    {option.name}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RegisterEquipmentModal({
   isOpen,
   onClose,
@@ -53,26 +164,42 @@ export function RegisterEquipmentModal({
   models,
   areas,
 }: RegisterEquipmentModalProps) {
+  const [selectedModelId, setSelectedModelId] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedModelId('');
+      setSelectedAreaId('');
+    }
+  }, [isOpen]);
+
+  const closeModal = () => {
+    setSelectedModelId('');
+    setSelectedAreaId('');
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
     const result = await onSubmit({
-      equipmentModelId: formData.get('equipmentModelId') as string,
+      equipmentModelId: selectedModelId,
       status: formData.get('status') as EquipmentStatus,
-      areaId: formData.get('areaId') as string,
+      areaId: selectedAreaId,
     });
 
     if (result) {
       e.currentTarget.reset();
-      onClose();
+      closeModal();
     }
   };
 
   return (
     <AnimatePresence>
       {isOpen &&
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
             initial={{
@@ -88,7 +215,7 @@ export function RegisterEquipmentModal({
               duration: 0.15
             }}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={closeModal}
             aria-hidden="true" />
 
 
@@ -114,7 +241,7 @@ export function RegisterEquipmentModal({
               stiffness: 400,
               damping: 30
             }}
-            className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden"
+            className="relative w-full max-w-lg bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden max-h-[85vh] flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-labelledby="register-equipment-title">
@@ -133,7 +260,7 @@ export function RegisterEquipmentModal({
                 </p>
               </div>
               <button
-                onClick={onClose}
+                onClick={closeModal}
                 className="p-1.5 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
                 aria-label="Close modal">
 
@@ -142,8 +269,8 @@ export function RegisterEquipmentModal({
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="p-6 space-y-5 overflow-y-auto min-h-0">
                 {/* Equipment Model */}
                 <div className="space-y-2">
                   <label
@@ -152,23 +279,15 @@ export function RegisterEquipmentModal({
 
                     Equipment Model <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     id="equip-model"
                     name="equipmentModelId"
-                    required
-                    defaultValue=""
+                    options={models}
+                    selectedId={selectedModelId}
+                    onSelect={setSelectedModelId}
+                    placeholder="Select a model..."
                     disabled={isSubmitting || models.length === 0}
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white">
-
-                    <option value="" disabled className="text-gray-600">
-                      Select a model...
-                    </option>
-                    {models.map((m) =>
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    )}
-                  </select>
+                  />
                 </div>
 
                 <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50/80 px-4 py-3 text-sm text-gray-700">
@@ -207,23 +326,15 @@ export function RegisterEquipmentModal({
 
                       Assigned Area <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <SearchableSelect
                       id="equip-area"
                       name="areaId"
-                      required
-                      defaultValue=""
+                      options={areas}
+                      selectedId={selectedAreaId}
+                      onSelect={setSelectedAreaId}
+                      placeholder="Select area..."
                       disabled={isSubmitting || areas.length === 0}
-                      className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white">
-
-                      <option value="" disabled className="text-gray-600">
-                        Select area...
-                      </option>
-                      {areas.map((a) =>
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      )}
-                    </select>
+                    />
                   </div>
                 </div>
               </div>
@@ -232,7 +343,7 @@ export function RegisterEquipmentModal({
               <div className="flex items-center justify-end gap-3 px-6 py-4 bg-stone-50 border-t border-stone-200">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={closeModal}
                   disabled={isSubmitting}
                   className="px-4 py-2 text-sm font-medium text-black bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
 
@@ -240,7 +351,13 @@ export function RegisterEquipmentModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || models.length === 0 || areas.length === 0}
+                  disabled={
+                    isSubmitting ||
+                    models.length === 0 ||
+                    areas.length === 0 ||
+                    !selectedModelId ||
+                    !selectedAreaId
+                  }
                   className="px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors shadow-sm">
 
                   {isSubmitting ? 'Registering...' : 'Register Equipment'}
