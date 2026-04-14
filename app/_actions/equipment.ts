@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 import { fetchBranchesAction } from "@/app/_actions/branches";
@@ -313,6 +314,23 @@ function isValidEquipmentStatus(status: string): status is EquipmentStatus {
 	return status === "AVAILABLE" || status === "MAINTENANCE" || status === "RETIRED" || status === "LOST";
 }
 
+async function logEquipmentAudit(input: {
+	action: string;
+	status: "SUCCESS" | "FAILED";
+	message: string;
+	userId?: string | null;
+	severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}) {
+	await createAuditLog({
+		action: input.action,
+		module: "Equipment",
+		status: input.status,
+		severity: input.severity ?? (input.status === "SUCCESS" ? "LOW" : "MEDIUM"),
+		message: input.message,
+		userId: input.userId ?? null,
+	});
+}
+
 export async function createEquipmentAction(input: {
 	equipmentModelId: string;
 	status: EquipmentStatus;
@@ -320,6 +338,7 @@ export async function createEquipmentAction(input: {
 	quantity: number;
 }): Promise<CreateEquipmentResult> {
 	const traceId = `equipment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		const session = await auth.api.getSession({
@@ -328,11 +347,19 @@ export async function createEquipmentAction(input: {
 
 		if (!session?.user) {
 			console.warn("[Equipment Action] Unauthorized create attempt", { traceId });
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized create equipment attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to create equipment.",
 			};
 		}
+
+		auditUserId = session.user.id;
 
 		const normalizedEquipmentModelId = input.equipmentModelId?.trim();
 		const normalizedAreaId = input.areaId?.trim();
@@ -342,6 +369,12 @@ export async function createEquipmentAction(input: {
 			: 0;
 
 		if (!normalizedEquipmentModelId) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: "Create failed: Equipment model is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment model is required.",
@@ -349,6 +382,12 @@ export async function createEquipmentAction(input: {
 		}
 
 		if (!normalizedAreaId) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: "Create failed: Area is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Area is required.",
@@ -356,6 +395,12 @@ export async function createEquipmentAction(input: {
 		}
 
 		if (!isValidEquipmentStatus(normalizedStatus)) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: `Create failed: Invalid status (${normalizedStatus}).`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Invalid equipment status.",
@@ -363,6 +408,12 @@ export async function createEquipmentAction(input: {
 		}
 
 		if (requestedQuantity < 1 || requestedQuantity > 200) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: `Create failed: Invalid quantity (${requestedQuantity}).`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Quantity must be between 1 and 200.",
@@ -372,6 +423,12 @@ export async function createEquipmentAction(input: {
 		const equipmentModelsResult = await fetchEquipmentModelsAction();
 
 		if (!equipmentModelsResult.ok) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: `Create failed: ${equipmentModelsResult.message}`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: equipmentModelsResult.message,
@@ -383,6 +440,12 @@ export async function createEquipmentAction(input: {
 		);
 
 		if (!modelExists) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				message: `Create failed: Equipment model ${normalizedEquipmentModelId} not found.`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Selected equipment model was not found. Please refresh and try again.",
@@ -422,6 +485,13 @@ export async function createEquipmentAction(input: {
 
 		await invalidateEquipmentCaches();
 
+		await logEquipmentAudit({
+			action: "Create equipment",
+			status: "SUCCESS",
+			message: `Created ${createdEquipment.length} equipment item(s). First ID: ${firstCreated.id}.`,
+			userId: session.user.id,
+		});
+
 		return {
 			ok: true,
 			equipmentId: firstCreated.id,
@@ -440,11 +510,26 @@ export async function createEquipmentAction(input: {
 		});
 
 		if (errorMessage.includes("Unique constraint failed")) {
+			await logEquipmentAudit({
+				action: "Create equipment",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Create failed: Unique constraint violation while generating QR/SKU.",
+				userId: auditUserId,
+			});
 			return {
 				ok: false,
 				message: "QR code already exists. Please use a different value.",
 			};
 		}
+
+		await logEquipmentAudit({
+			action: "Create equipment",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Create failed: ${errorMessage}`,
+			userId: auditUserId,
+		});
 
 		return {
 			ok: false,
@@ -459,6 +544,7 @@ export async function updateEquipmentAction(input: {
 	areaId: string;
 }): Promise<UpdateEquipmentResult> {
 	const traceId = `equipment_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		const session = await auth.api.getSession({
@@ -466,16 +552,30 @@ export async function updateEquipmentAction(input: {
 		});
 
 		if (!session?.user) {
+			await logEquipmentAudit({
+				action: "Update equipment",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized update equipment attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to update equipment.",
 			};
 		}
 
+		auditUserId = session.user.id;
+
 		const equipmentId = input.equipmentId?.trim();
 		const areaId = input.areaId?.trim();
 
 		if (!equipmentId) {
+			await logEquipmentAudit({
+				action: "Update equipment",
+				status: "FAILED",
+				message: "Update failed: Equipment ID is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment ID is required.",
@@ -483,6 +583,12 @@ export async function updateEquipmentAction(input: {
 		}
 
 		if (!areaId) {
+			await logEquipmentAudit({
+				action: "Update equipment",
+				status: "FAILED",
+				message: "Update failed: Area is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Area is required.",
@@ -490,6 +596,12 @@ export async function updateEquipmentAction(input: {
 		}
 
 		if (!isValidEquipmentStatus(input.status)) {
+			await logEquipmentAudit({
+				action: "Update equipment",
+				status: "FAILED",
+				message: `Update failed: Invalid status (${input.status}).`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Invalid equipment status.",
@@ -507,6 +619,12 @@ export async function updateEquipmentAction(input: {
 		});
 
 		if (!existingEquipment) {
+			await logEquipmentAudit({
+				action: "Update equipment",
+				status: "FAILED",
+				message: `Update failed: Equipment ${equipmentId} not found.`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment not found or already deleted.",
@@ -528,6 +646,13 @@ export async function updateEquipmentAction(input: {
 
 		await invalidateEquipmentCaches();
 
+		await logEquipmentAudit({
+			action: "Update equipment",
+			status: "SUCCESS",
+			message: `Updated equipment ${equipmentId} with status ${input.status}.`,
+			userId: session.user.id,
+		});
+
 		console.log("[Equipment Action] Equipment updated successfully", {
 			traceId,
 			equipmentId,
@@ -546,6 +671,14 @@ export async function updateEquipmentAction(input: {
 			error: errorMessage,
 		});
 
+		await logEquipmentAudit({
+			action: "Update equipment",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Update failed: ${errorMessage}`,
+			userId: auditUserId,
+		});
+
 		return {
 			ok: false,
 			message: `Unable to update equipment: ${errorMessage}`,
@@ -557,6 +690,7 @@ export async function deleteEquipmentAction(input: {
 	equipmentId: string;
 }): Promise<DeleteEquipmentResult> {
 	const traceId = `equipment_delete_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	let auditUserId: string | null = null;
 
 	try {
 		const session = await auth.api.getSession({
@@ -564,14 +698,28 @@ export async function deleteEquipmentAction(input: {
 		});
 
 		if (!session?.user) {
+			await logEquipmentAudit({
+				action: "Delete equipment",
+				status: "FAILED",
+				severity: "HIGH",
+				message: "Unauthorized delete equipment attempt.",
+			});
 			return {
 				ok: false,
 				message: "You must be logged in to delete equipment.",
 			};
 		}
 
+		auditUserId = session.user.id;
+
 		const equipmentId = input.equipmentId?.trim();
 		if (!equipmentId) {
+			await logEquipmentAudit({
+				action: "Delete equipment",
+				status: "FAILED",
+				message: "Delete failed: Equipment ID is required.",
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment ID is required.",
@@ -589,6 +737,12 @@ export async function deleteEquipmentAction(input: {
 		});
 
 		if (!existingEquipment) {
+			await logEquipmentAudit({
+				action: "Delete equipment",
+				status: "FAILED",
+				message: `Delete failed: Equipment ${equipmentId} not found.`,
+				userId: session.user.id,
+			});
 			return {
 				ok: false,
 				message: "Equipment not found or already deleted.",
@@ -609,6 +763,13 @@ export async function deleteEquipmentAction(input: {
 
 		await invalidateEquipmentCaches();
 
+		await logEquipmentAudit({
+			action: "Delete equipment",
+			status: "SUCCESS",
+			message: `Deleted equipment ${equipmentId}.`,
+			userId: session.user.id,
+		});
+
 		console.log("[Equipment Action] Equipment deleted successfully", {
 			traceId,
 			equipmentId,
@@ -625,6 +786,14 @@ export async function deleteEquipmentAction(input: {
 		console.error("[Equipment Action] Delete failed", {
 			traceId,
 			error: errorMessage,
+		});
+
+		await logEquipmentAudit({
+			action: "Delete equipment",
+			status: "FAILED",
+			severity: "HIGH",
+			message: `Delete failed: ${errorMessage}`,
+			userId: auditUserId,
 		});
 
 		return {
