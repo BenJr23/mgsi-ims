@@ -332,3 +332,4 @@ export async function signOutAction(): Promise<AuthResult> {
     return { ok: false, message: "Unable to sign out." };
   }
 }
+

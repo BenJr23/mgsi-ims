@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
 import { EditEquipmentModal } from '../components/modals/EditEquipmentModal';
 import { DeleteEquipmentModal } from '../components/modals/DeleteEquipmentModal';
@@ -20,8 +19,8 @@ import {
 import {
   QrCodeIcon,
   SearchIcon,
-  PlusIcon,
   FilterIcon,
+  PlusIcon,
   DownloadIcon,
   PrinterIcon,
   MoreVerticalIcon,
@@ -105,6 +104,10 @@ export default function EquipmentPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('ALL');
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState('ALL');
+  const [selectedModelFilters, setSelectedModelFilters] = useState<string[]>([]);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
   const [isEditEquipmentModalOpen, setIsEditEquipmentModalOpen] = useState(false);
   const [isDeleteEquipmentModalOpen, setIsDeleteEquipmentModalOpen] = useState(false);
@@ -124,6 +127,7 @@ export default function EquipmentPage() {
     left: number;
   } | null>(null);
   const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
+  const filterPanelRef = useRef<HTMLDivElement>(null);
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
@@ -205,6 +209,56 @@ export default function EquipmentPage() {
     [branches],
   );
 
+  const branchFilterOptions = useMemo(
+    () => ['ALL', ...Array.from(new Set(branches.map((branch) => branch.name)))],
+    [branches],
+  );
+
+  const areaFilterOptions = useMemo(
+    () => {
+      if (selectedBranchFilter === 'ALL') {
+        return [
+          'ALL',
+          ...Array.from(
+            new Set(
+              branches.flatMap((branch) =>
+                (branch.areas ?? []).map((area) => area.name),
+              ),
+            ),
+          ),
+        ];
+      }
+
+      const selectedBranch = branches.find((branch) => branch.name === selectedBranchFilter);
+      return ['ALL', ...Array.from(new Set((selectedBranch?.areas ?? []).map((area) => area.name)))];
+    },
+    [branches, selectedBranchFilter],
+  );
+
+  const modelFilterOptions = useMemo(
+    () => Array.from(new Set(models.map((model) => model.name))),
+    [models],
+  );
+
+  useEffect(() => {
+    if (selectedAreaFilter !== 'ALL' && !areaFilterOptions.includes(selectedAreaFilter)) {
+      setSelectedAreaFilter('ALL');
+    }
+  }, [areaFilterOptions, selectedAreaFilter]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!filterPanelRef.current?.contains(event.target as Node)) {
+        setIsFilterPanelOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const metrics = useMemo(() => {
     const availableCount = equipment.filter((item) => item.status === 'AVAILABLE').length;
     const maintenanceCount = equipment.filter((item) => item.status === 'MAINTENANCE').length;
@@ -244,11 +298,33 @@ export default function EquipmentPage() {
     ];
   }, [equipment]);
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (activeTab !== 'ALL') count += 1;
+    if (selectedBranchFilter !== 'ALL') count += 1;
+    if (selectedAreaFilter !== 'ALL') count += 1;
+    if (selectedModelFilters.length > 0) count += 1;
+    if (searchQuery.trim()) count += 1;
+    return count;
+  }, [activeTab, searchQuery, selectedAreaFilter, selectedBranchFilter, selectedModelFilters]);
+
   const filteredEquipment = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return equipment.filter((item) => {
       if (activeTab !== 'ALL' && item.status !== activeTab) {
+        return false;
+      }
+
+      if (selectedBranchFilter !== 'ALL' && item.branchName !== selectedBranchFilter) {
+        return false;
+      }
+
+      if (selectedAreaFilter !== 'ALL' && item.areaName !== selectedAreaFilter) {
+        return false;
+      }
+
+      if (selectedModelFilters.length > 0 && !selectedModelFilters.includes(item.modelName)) {
         return false;
       }
 
@@ -269,7 +345,14 @@ export default function EquipmentPage() {
         .toLowerCase()
         .includes(query);
     });
-  }, [activeTab, equipment, searchQuery]);
+  }, [
+    activeTab,
+    equipment,
+    searchQuery,
+    selectedAreaFilter,
+    selectedBranchFilter,
+    selectedModelFilters,
+  ]);
 
   const handleRegisterEquipmentSubmit = async (data: {
     equipmentModelId: string;
@@ -673,20 +756,9 @@ export default function EquipmentPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
-          <div className="p-4 sm:p-6 border-b border-stone-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex overflow-x-auto gap-1 hide-scrollbar">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === tab.value ? 'bg-stone-900 text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 lg:w-64">
+          <div className="p-4 sm:p-6 border-b border-stone-200">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[220px] max-w-md">
                 <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                 <input
                   type="text"
@@ -696,9 +768,140 @@ export default function EquipmentPage() {
                   className="placeholder-gray-600 text-gray-900 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
                 />
               </div>
-              <button className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors">
-                <FilterIcon className="w-4 h-4" />
-              </button>
+
+              <div ref={filterPanelRef} className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => setIsFilterPanelOpen((open) => !open)}
+                  className="relative inline-flex items-center justify-center p-2 border border-stone-200 rounded-lg bg-stone-50 text-stone-700 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  aria-label="Open filters"
+                  title="Filters"
+                >
+                  <FilterIcon className="h-4 w-4" />
+                  {activeFilterCount > 0 ? (
+                    <span className="absolute -top-2 -right-2 inline-flex items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {isFilterPanelOpen ? (
+                  <div className="absolute right-0 mt-2 w-[min(90vw,28rem)] rounded-lg border border-stone-200 bg-white shadow-lg p-3 z-20">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block text-xs font-medium text-stone-600">
+                      Status
+                      <select
+                        value={activeTab}
+                        onChange={(event) => setActiveTab(event.target.value as EquipmentStatus | 'ALL')}
+                        className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        aria-label="Filter by status"
+                      >
+                        {STATUS_TABS.map((tab) => (
+                          <option key={tab.value} value={tab.value}>
+                            {tab.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block text-xs font-medium text-stone-600">
+                      Branch
+                      <select
+                        value={selectedBranchFilter}
+                        onChange={(event) => setSelectedBranchFilter(event.target.value)}
+                        className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        aria-label="Filter by branch"
+                      >
+                        {branchFilterOptions.map((branchName) => (
+                          <option key={branchName} value={branchName}>
+                            {branchName === 'ALL' ? 'All Branches' : branchName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block text-xs font-medium text-stone-600 sm:col-span-2">
+                      Area
+                      <select
+                        value={selectedAreaFilter}
+                        onChange={(event) => setSelectedAreaFilter(event.target.value)}
+                        className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                        aria-label="Filter by area"
+                      >
+                        {areaFilterOptions.map((areaName) => (
+                          <option key={areaName} value={areaName}>
+                            {areaName === 'ALL' ? 'All Areas' : areaName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium text-stone-600 mb-1">Equipment Model</p>
+                      <div className="rounded-lg border border-stone-200 bg-stone-50 p-2 max-h-40 overflow-y-auto">
+                        <label className="flex items-center gap-2 px-2 py-1.5 text-sm text-stone-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedModelFilters.length === 0}
+                            onChange={() => setSelectedModelFilters([])}
+                          />
+                          All Models
+                        </label>
+                        <div className="my-1 border-t border-stone-200" />
+                        {modelFilterOptions.map((modelName) => {
+                          const checked = selectedModelFilters.includes(modelName);
+
+                          return (
+                            <label
+                              key={modelName}
+                              className="flex items-center gap-2 px-2 py-1.5 text-sm text-stone-700 hover:bg-white rounded"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(event) => {
+                                  if (event.target.checked) {
+                                    setSelectedModelFilters((prev) => [...prev, modelName]);
+                                    return;
+                                  }
+
+                                  setSelectedModelFilters((prev) =>
+                                    prev.filter((value) => value !== modelName),
+                                  );
+                                }}
+                              />
+                              {modelName}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('ALL');
+                        setSelectedBranchFilter('ALL');
+                        setSelectedAreaFilter('ALL');
+                        setSelectedModelFilters([]);
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium text-stone-700 bg-stone-100 rounded-md hover:bg-stone-200"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsFilterPanelOpen(false)}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-stone-900 rounded-md hover:bg-stone-700"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
