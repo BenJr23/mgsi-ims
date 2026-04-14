@@ -58,6 +58,11 @@ const ADMIN_NAV_ITEMS = [
   name: 'User Management',
   icon: UsersIcon,
   href: '/user-management',
+},
+{
+  name: 'Audit Logs',
+  icon: UsersIcon,
+  href: '/audit-logs',
 }] satisfies NavItem[];
 
 const NAV_ITEMS = [...MAIN_NAV_ITEMS, ...ADMIN_NAV_ITEMS];

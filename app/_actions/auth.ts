@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 
 type AuthResult = {
@@ -54,6 +55,9 @@ export async function signInWithEmailAction(input: {
   const invalidCredentialsMessage = "Invalid email or password";
   const email = input.email.trim().toLowerCase();
   const credentialProviderId = "credential";
+  const requestHeaders = await headers();
+  const ipAddress = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = requestHeaders.get("user-agent");
 
   try {
     // Always validate credentials against external API first.
@@ -61,6 +65,16 @@ export async function signInWithEmailAction(input: {
     const bmsSecretKey = process.env.BMS_SECRET_KEY;
 
     if (!bmsSecretKey) {
+      await createAuditLog({
+        action: "Sign in",
+        module: "Authentication",
+        status: "FAILED",
+        severity: "MEDIUM",
+        message: "BMS secret key missing during sign in.",
+        ipAddress,
+        userAgent,
+      });
+
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -83,6 +97,16 @@ export async function signInWithEmailAction(input: {
     const externalData = (await externalResponse.json()) as ExternalLoginSuccess | ExternalLoginError;
 
     if (!externalResponse.ok || !externalData.success) {
+      await createAuditLog({
+        action: "Sign in",
+        module: "Authentication",
+        status: "FAILED",
+        severity: "HIGH",
+        message: `Failed sign in attempt for ${email}`,
+        ipAddress,
+        userAgent,
+      });
+
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -107,11 +131,23 @@ export async function signInWithEmailAction(input: {
     });
 
     const mappedRole = mapExternalRoleToInternal(externalUser.role);
-  const effectiveRole: LocalRole | null = localUser?.role ?? mappedRole;
+    const effectiveRole: LocalRole | null = localUser?.role ?? mappedRole;
+    let resolvedUserId = localUser?.id ?? null;
 
     // Existing users always keep their local role.
     // New users are provisioned only if the external role maps to an allowed local role.
     if (!effectiveRole) {
+      await createAuditLog({
+        action: "Sign in",
+        module: "Authentication",
+        status: "FAILED",
+        severity: "HIGH",
+        message: `Role mapping denied sign in for ${email}`,
+        userId: resolvedUserId,
+        ipAddress,
+        userAgent,
+      });
+
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -141,6 +177,7 @@ export async function signInWithEmailAction(input: {
           },
           select: { id: true, email: true },
         });
+        resolvedUserId = createdUser.id;
 
         await prisma.account.create({
           data: {
@@ -166,7 +203,7 @@ export async function signInWithEmailAction(input: {
             },
           });
         }
-    
+
         const credentialAccount = localUser.accounts[0];
         if (!credentialAccount) {
           await prisma.account.create({
@@ -200,6 +237,17 @@ export async function signInWithEmailAction(input: {
         }
       }
     } catch {
+      await createAuditLog({
+        action: "Sign in",
+        module: "Authentication",
+        status: "FAILED",
+        severity: "MEDIUM",
+        message: `Unable to sync local account for ${email}`,
+        userId: resolvedUserId,
+        ipAddress,
+        userAgent,
+      });
+
       return {
         ok: false,
         message: invalidCredentialsMessage,
@@ -214,8 +262,29 @@ export async function signInWithEmailAction(input: {
       },
     });
 
+    await createAuditLog({
+      action: "Sign in",
+      module: "Authentication",
+      status: "SUCCESS",
+      severity: "LOW",
+      message: `${fetchedUser.email} signed in successfully`,
+      userId: resolvedUserId,
+      ipAddress,
+      userAgent,
+    });
+
     return { ok: true, message: "Logged in successfully." };
   } catch {
+    await createAuditLog({
+      action: "Sign in",
+      module: "Authentication",
+      status: "FAILED",
+      severity: "MEDIUM",
+      message: `Unhandled sign in failure for ${email}`,
+      ipAddress,
+      userAgent,
+    });
+
     return {
       ok: false,
       message: invalidCredentialsMessage,
@@ -224,13 +293,42 @@ export async function signInWithEmailAction(input: {
 }
 
 export async function signOutAction(): Promise<AuthResult> {
+  const requestHeaders = await headers();
+  const ipAddress = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = requestHeaders.get("user-agent");
+
   try {
+    const session = await auth.api.getSession({
+      headers: requestHeaders,
+    });
+
     await auth.api.signOut({
-      headers: await headers(),
+      headers: requestHeaders,
+    });
+
+    await createAuditLog({
+      action: "Sign out",
+      module: "Authentication",
+      status: "SUCCESS",
+      severity: "LOW",
+      message: `${session?.user?.email ?? "Unknown user"} signed out`,
+      userId: session?.user?.id ?? null,
+      ipAddress,
+      userAgent,
     });
 
     return { ok: true, message: "Signed out successfully." };
   } catch {
+    await createAuditLog({
+      action: "Sign out",
+      module: "Authentication",
+      status: "FAILED",
+      severity: "MEDIUM",
+      message: "Sign out failed.",
+      ipAddress,
+      userAgent,
+    });
+
     return { ok: false, message: "Unable to sign out." };
   }
 }
