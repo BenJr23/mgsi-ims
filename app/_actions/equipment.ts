@@ -20,10 +20,34 @@ type CreateEquipmentResult =
 			message: string;
 		};
 
+type UpdateEquipmentResult =
+	| {
+			ok: true;
+			equipmentId: string;
+			message: string;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
+type DeleteEquipmentResult =
+	| {
+			ok: true;
+			equipmentId: string;
+			message: string;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 export type EquipmentListItem = {
 	id: string;
 	qrCode: string;
 	sku: string | null;
+	equipmentModelId: string;
+	areaId: string;
 	modelName: string;
 	modelType: string;
 	status: EquipmentStatus;
@@ -193,6 +217,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 				id: true,
 				qrCode: true,
 				sku: true,
+				equipmentModelId: true,
 				status: true,
 				createdAt: true,
 				equipmentModel: {
@@ -223,6 +248,8 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			id: item.id,
 			qrCode: item.qrCode,
 			sku: item.sku,
+			equipmentModelId: item.equipmentModelId,
+			areaId: item.areaId,
 			modelName: item.equipmentModel.name,
 			modelType: item.equipmentModel.type,
 			status: item.status,
@@ -422,6 +449,187 @@ export async function createEquipmentAction(input: {
 		return {
 			ok: false,
 			message: `Unable to create equipment: ${errorMessage}`,
+		};
+	}
+}
+
+export async function updateEquipmentAction(input: {
+	equipmentId: string;
+	status: EquipmentStatus;
+	areaId: string;
+}): Promise<UpdateEquipmentResult> {
+	const traceId = `equipment_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session?.user) {
+			return {
+				ok: false,
+				message: "You must be logged in to update equipment.",
+			};
+		}
+
+		const equipmentId = input.equipmentId?.trim();
+		const areaId = input.areaId?.trim();
+
+		if (!equipmentId) {
+			return {
+				ok: false,
+				message: "Equipment ID is required.",
+			};
+		}
+
+		if (!areaId) {
+			return {
+				ok: false,
+				message: "Area is required.",
+			};
+		}
+
+		if (!isValidEquipmentStatus(input.status)) {
+			return {
+				ok: false,
+				message: "Invalid equipment status.",
+			};
+		}
+
+		const existingEquipment = await prisma.equipment.findFirst({
+			where: {
+				id: equipmentId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!existingEquipment) {
+			return {
+				ok: false,
+				message: "Equipment not found or already deleted.",
+			};
+		}
+
+		await prisma.equipment.update({
+			where: {
+				id: equipmentId,
+			},
+			data: {
+				status: input.status,
+				areaId,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		await invalidateEquipmentCaches();
+
+		console.log("[Equipment Action] Equipment updated successfully", {
+			traceId,
+			equipmentId,
+		});
+
+		return {
+			ok: true,
+			equipmentId,
+			message: "Equipment updated successfully.",
+		};
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+		console.error("[Equipment Action] Update failed", {
+			traceId,
+			error: errorMessage,
+		});
+
+		return {
+			ok: false,
+			message: `Unable to update equipment: ${errorMessage}`,
+		};
+	}
+}
+
+export async function deleteEquipmentAction(input: {
+	equipmentId: string;
+}): Promise<DeleteEquipmentResult> {
+	const traceId = `equipment_delete_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session?.user) {
+			return {
+				ok: false,
+				message: "You must be logged in to delete equipment.",
+			};
+		}
+
+		const equipmentId = input.equipmentId?.trim();
+		if (!equipmentId) {
+			return {
+				ok: false,
+				message: "Equipment ID is required.",
+			};
+		}
+
+		const existingEquipment = await prisma.equipment.findFirst({
+			where: {
+				id: equipmentId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		if (!existingEquipment) {
+			return {
+				ok: false,
+				message: "Equipment not found or already deleted.",
+			};
+		}
+
+		await prisma.equipment.update({
+			where: {
+				id: equipmentId,
+			},
+			data: {
+				deletedAt: new Date(),
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		await invalidateEquipmentCaches();
+
+		console.log("[Equipment Action] Equipment deleted successfully", {
+			traceId,
+			equipmentId,
+		});
+
+		return {
+			ok: true,
+			equipmentId,
+			message: "Equipment deleted successfully.",
+		};
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+		console.error("[Equipment Action] Delete failed", {
+			traceId,
+			error: errorMessage,
+		});
+
+		return {
+			ok: false,
+			message: `Unable to delete equipment: ${errorMessage}`,
 		};
 	}
 }

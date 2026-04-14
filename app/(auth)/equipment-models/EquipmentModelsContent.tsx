@@ -418,7 +418,7 @@ export default function EquipmentModelsContent() {
                                 <input
                                     type="text"
                                     placeholder="Search models..."
-                                    className="placeholder-gray-600 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
+                                    className="placeholder-gray-600 text-gray-900 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
                                 />
                             </div>
                             <button className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors">
@@ -517,41 +517,41 @@ export default function EquipmentModelsContent() {
 
             {openMenu
                 ? createPortal(
-                      <div
-                          data-row-action-menu
-                          className="fixed z-120 w-42 rounded-lg border border-stone-200 bg-white py-1 shadow-xl"
-                          style={{
-                              top: `${openMenu.top}px`,
-                              left: `${openMenu.left}px`,
-                          }}
-                      >
-                          <button
-                              type="button"
-                              onClick={() => handleOpenViewModel(openMenu.modelId)}
-                              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
-                          >
-                              <EyeIcon className="w-4 h-4" aria-hidden="true" />
-                              View
-                          </button>
-                          <button
-                              type="button"
-                              onClick={() => handleOpenEditModel(openMenu.modelId)}
-                              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
-                          >
-                              <PencilIcon className="w-4 h-4" aria-hidden="true" />
-                              Edit
-                          </button>
-                          <button
-                              type="button"
-                              onClick={() => handleOpenDeleteModel(openMenu.modelId)}
-                              className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-2"
-                          >
-                              <Trash2Icon className="w-4 h-4" aria-hidden="true" />
-                              Delete
-                          </button>
-                      </div>,
-                      document.body,
-                  )
+                    <div
+                        data-row-action-menu
+                        className="fixed z-120 w-42 rounded-lg border border-stone-200 bg-white py-1 shadow-xl"
+                        style={{
+                            top: `${openMenu.top}px`,
+                            left: `${openMenu.left}px`,
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => handleOpenViewModel(openMenu.modelId)}
+                            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+                        >
+                            <EyeIcon className="w-4 h-4" aria-hidden="true" />
+                            View
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenEditModel(openMenu.modelId)}
+                            className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+                        >
+                            <PencilIcon className="w-4 h-4" aria-hidden="true" />
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenDeleteModel(openMenu.modelId)}
+                            className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-2"
+                        >
+                            <Trash2Icon className="w-4 h-4" aria-hidden="true" />
+                            Delete
+                        </button>
+                    </div>,
+                    document.body,
+                )
                 : null}
 
             <AnimatePresence>
