@@ -929,7 +929,7 @@ export default function EquipmentPage() {
           })}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden flex flex-col">
+        <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-visible flex flex-col">
           <div className="p-4 sm:p-6 border-b border-stone-200">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="relative flex-1 min-w-[220px] max-w-md">
