@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
+import { EditEquipmentModal } from '../components/modals/EditEquipmentModal';
+import { DeleteEquipmentModal } from '../components/modals/DeleteEquipmentModal';
 import {
   createEquipmentAction,
+  updateEquipmentAction,
+  deleteEquipmentAction,
   fetchEquipmentAction,
   type EquipmentListItem,
 } from '@/app/_actions/equipment';
@@ -20,12 +25,16 @@ import {
   DownloadIcon,
   PrinterIcon,
   MoreVerticalIcon,
+  EyeIcon,
+  PencilIcon,
+  Trash2Icon,
   CheckCircle2Icon,
   WrenchIcon,
   ArchiveIcon,
   AlertTriangleIcon,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 type EquipmentStatus = 'AVAILABLE' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
 
@@ -93,16 +102,27 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
 }
 
 export default function EquipmentPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
+  const [isEditEquipmentModalOpen, setIsEditEquipmentModalOpen] = useState(false);
+  const [isDeleteEquipmentModalOpen, setIsDeleteEquipmentModalOpen] = useState(false);
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [models, setModels] = useState<EquipmentModelListItem[]>([]);
   const [equipment, setEquipment] = useState<EquipmentListItem[]>([]);
   const [isLoadingSupportData, setIsLoadingSupportData] = useState(true);
   const [isLoadingEquipment, setIsLoadingEquipment] = useState(true);
   const [isSubmittingEquipment, setIsSubmittingEquipment] = useState(false);
+  const [isUpdatingEquipment, setIsUpdatingEquipment] = useState(false);
+  const [isDeletingEquipment, setIsDeletingEquipment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<EquipmentListItem | null>(null);
+  const [openMenu, setOpenMenu] = useState<{
+    equipmentId: string;
+    top: number;
+    left: number;
+  } | null>(null);
   const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
 
   const loadSupportData = async () => {
@@ -278,6 +298,160 @@ export default function EquipmentPage() {
       setIsSubmittingEquipment(false);
     }
   };
+
+  const toggleActionMenu = (equipmentId: string, button: HTMLButtonElement) => {
+    if (openMenu?.equipmentId === equipmentId) {
+      setOpenMenu(null);
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 168;
+    const menuHeight = 132;
+    const viewportPadding = 8;
+    const alignedLeft = rect.right - menuWidth;
+    const left = Math.max(
+      viewportPadding,
+      Math.min(alignedLeft, window.innerWidth - menuWidth - viewportPadding),
+    );
+    const alignedBottom = rect.bottom + 8;
+    const top = alignedBottom + menuHeight > window.innerHeight - viewportPadding
+      ? Math.max(viewportPadding, rect.top - menuHeight - 8)
+      : alignedBottom;
+
+    setOpenMenu({
+      equipmentId,
+      top,
+      left,
+    });
+  };
+
+  const handleOpenViewEquipment = (equipmentId: string) => {
+    const target = equipment.find((item) => item.id === equipmentId);
+    if (!target?.sku) {
+      setError('Unable to open equipment details because SKU is unavailable.');
+      setOpenMenu(null);
+      return;
+    }
+
+    setOpenMenu(null);
+    router.push(`/equipment/${encodeURIComponent(target.sku)}`);
+  };
+
+  const handleOpenEditEquipment = (equipmentId: string) => {
+    const target = equipment.find((item) => item.id === equipmentId);
+    if (!target) {
+      setError('Unable to locate the selected equipment item.');
+      return;
+    }
+
+    setOpenMenu(null);
+    setSelectedEquipment(target);
+    setIsEditEquipmentModalOpen(true);
+  };
+
+  const handleDeleteEquipment = async (equipmentId: string) => {
+    const target = equipment.find((item) => item.id === equipmentId);
+    if (!target) {
+      setError('Unable to locate the selected equipment item.');
+      return;
+    }
+
+    setSelectedEquipment(target);
+    setIsDeleteEquipmentModalOpen(true);
+    setOpenMenu(null);
+  };
+
+  const handleDeleteEquipmentConfirm = async () => {
+    if (!selectedEquipment) {
+      return;
+    }
+
+    setIsDeletingEquipment(true);
+    setError(null);
+
+    try {
+      const result = await deleteEquipmentAction({
+        equipmentId: selectedEquipment.id,
+      });
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      await loadEquipment();
+      setIsDeleteEquipmentModalOpen(false);
+      setSelectedEquipment(null);
+    } catch {
+      setError('Unable to delete equipment right now. Please try again.');
+    } finally {
+      setIsDeletingEquipment(false);
+    }
+  };
+
+  const handleEditEquipmentSubmit = async (data: {
+    equipmentId: string;
+    status: EquipmentStatus;
+    areaId: string;
+  }) => {
+    setIsUpdatingEquipment(true);
+    setError(null);
+
+    try {
+      const result = await updateEquipmentAction(data);
+
+      if (!result.ok) {
+        setError(result.message);
+        return false;
+      }
+
+      await loadEquipment();
+      setIsEditEquipmentModalOpen(false);
+      setSelectedEquipment(null);
+      return true;
+    } catch {
+      setError('Unable to update equipment right now. Please try again.');
+      return false;
+    } finally {
+      setIsUpdatingEquipment(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!openMenu) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        setOpenMenu(null);
+        return;
+      }
+
+      if (target.closest('[data-row-action-trigger], [data-row-action-menu]')) {
+        return;
+      }
+
+      setOpenMenu(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenMenu(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [openMenu]);
 
   const handlePrintEquipmentQr = async (item: EquipmentListItem) => {
     const quantityInput = (printQuantities[item.id] ?? '1').trim();
@@ -519,7 +693,7 @@ export default function EquipmentPage() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by QR, SKU, model..."
-                  className="placeholder-gray-600 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
+                  className="placeholder-gray-600 text-gray-900 w-full pl-9 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50"
                 />
               </div>
               <button className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors">
@@ -527,6 +701,8 @@ export default function EquipmentPage() {
               </button>
             </div>
           </div>
+
+          {error ? <div className="px-6 py-3 text-sm text-rose-700 bg-rose-50 border-b border-rose-200">{error}</div> : null}
 
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-stone-200">
@@ -631,7 +807,14 @@ export default function EquipmentPage() {
                           >
                             <PrinterIcon className="w-4 h-4" />
                           </button>
-                          <button className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors">
+                          <button
+                            type="button"
+                            data-row-action-trigger
+                            onClick={(event) => toggleActionMenu(item.id, event.currentTarget)}
+                            className="text-stone-400 hover:text-stone-600 p-1 rounded-md hover:bg-stone-100 transition-colors"
+                            aria-label={`Actions for ${item.sku ?? item.qrCode}`}
+                            aria-expanded={openMenu?.equipmentId === item.id}
+                          >
                             <MoreVerticalIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -652,6 +835,45 @@ export default function EquipmentPage() {
         </div>
       </main>
 
+      {openMenu
+        ? createPortal(
+          <div
+            data-row-action-menu
+            className="fixed z-120 w-42 rounded-lg border border-stone-200 bg-white py-1 shadow-xl"
+            style={{
+              top: `${openMenu.top}px`,
+              left: `${openMenu.left}px`,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleOpenViewEquipment(openMenu.equipmentId)}
+              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+            >
+              <EyeIcon className="w-4 h-4" aria-hidden="true" />
+              View
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenEditEquipment(openMenu.equipmentId)}
+              className="w-full px-3 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors inline-flex items-center gap-2"
+            >
+              <PencilIcon className="w-4 h-4" aria-hidden="true" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteEquipment(openMenu.equipmentId)}
+              className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 transition-colors inline-flex items-center gap-2 disabled:opacity-60"
+            >
+              <Trash2Icon className="w-4 h-4" aria-hidden="true" />
+              Delete
+            </button>
+          </div>,
+          document.body,
+        )
+        : null}
+
       <RegisterEquipmentModal
         isOpen={isRegisterEquipmentModalOpen}
         onClose={() => setIsRegisterEquipmentModalOpen(false)}
@@ -659,6 +881,33 @@ export default function EquipmentPage() {
         isSubmitting={isSubmittingEquipment}
         models={modelOptions}
         areas={areaOptions}
+      />
+
+      <EditEquipmentModal
+        isOpen={isEditEquipmentModalOpen}
+        onClose={() => {
+          setIsEditEquipmentModalOpen(false);
+          setSelectedEquipment(null);
+        }}
+        onSubmit={handleEditEquipmentSubmit}
+        isSubmitting={isUpdatingEquipment}
+        equipment={selectedEquipment}
+        areas={areaOptions}
+      />
+
+      <DeleteEquipmentModal
+        isOpen={isDeleteEquipmentModalOpen}
+        onClose={() => {
+          if (isDeletingEquipment) {
+            return;
+          }
+
+          setIsDeleteEquipmentModalOpen(false);
+          setSelectedEquipment(null);
+        }}
+        equipmentLabel={selectedEquipment?.sku ?? selectedEquipment?.qrCode ?? 'selected equipment'}
+        onConfirm={handleDeleteEquipmentConfirm}
+        isDeleting={isDeletingEquipment}
       />
     </div>
   );
