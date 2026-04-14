@@ -50,8 +50,9 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
     const [severityFilter, setSeverityFilter] = useState<'ALL' | AuditSeverity>('ALL');
     const [statusFilter, setStatusFilter] = useState<'ALL' | AuditLogRow['status']>('ALL');
     const [page, setPage] = useState(1);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-    const perPage = 8;
+    const perPage = 10;
 
     const filteredLogs = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase();
@@ -125,6 +126,62 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
         URL.revokeObjectURL(url);
     };
 
+    const handleExportPdf = async () => {
+        if (filteredLogs.length === 0 || isExportingPdf) {
+            return;
+        }
+
+        setIsExportingPdf(true);
+
+        try {
+            const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable'),
+            ]);
+
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'pt',
+                format: 'a4',
+            });
+
+            doc.setFontSize(14);
+            doc.text('Audit Logs', 40, 40);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+
+            autoTable(doc, {
+                startY: 72,
+                head: [['Timestamp', 'User', 'Action', 'Module', 'IP', 'Severity', 'Status']],
+                body: filteredLogs.map((row) => [
+                    formatDateTime(row.timestamp),
+                    row.user,
+                    row.action,
+                    row.module,
+                    row.ip,
+                    row.severity,
+                    row.status,
+                ]),
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 5,
+                },
+                headStyles: {
+                    fillColor: [28, 25, 23],
+                    textColor: [255, 255, 255],
+                },
+            });
+
+            doc.save(`audit-logs-${todayDate}.pdf`);
+        } catch (error) {
+            console.error('[Audit Logs] PDF export failed', error);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
     return (
         <div className="flex flex-col min-h-screen">
             <main className="flex-1 p-8 space-y-8 max-w-400 mx-auto w-full">
@@ -135,15 +192,26 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                             Review account activity, security events, and sensitive actions.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleExportCsv}
-                        disabled={filteredLogs.length === 0}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        <DownloadIcon className="w-4 h-4" aria-hidden="true" />
-                        Export CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleExportCsv}
+                            disabled={filteredLogs.length === 0}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <DownloadIcon className="w-4 h-4" aria-hidden="true" />
+                            Export CSV
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => void handleExportPdf()}
+                            disabled={filteredLogs.length === 0 || isExportingPdf}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <DownloadIcon className="w-4 h-4" aria-hidden="true" />
+                            {isExportingPdf ? 'Exporting PDF...' : 'Export PDF'}
+                        </button>
+                    </div>
                 </div>
 
                 <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Audit log metrics">
