@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
     UsersIcon,
     ShieldCheckIcon,
@@ -56,7 +57,6 @@ export function UserManagementContent() {
     const [isSavingRole, setIsSavingRole] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
     const [saveNotice, setSaveNotice] = useState<string | null>(null);
-    const [isSaveNoticeVisible, setIsSaveNoticeVisible] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -103,27 +103,6 @@ export function UserManagementContent() {
         });
     }, [roleFilter, search, users]);
 
-    useEffect(() => {
-        if (!saveNotice) {
-            return;
-        }
-
-        setIsSaveNoticeVisible(true);
-
-        const hideTimer = window.setTimeout(() => {
-            setIsSaveNoticeVisible(false);
-        }, 2400);
-
-        const clearTimer = window.setTimeout(() => {
-            setSaveNotice(null);
-        }, 2800);
-
-        return () => {
-            window.clearTimeout(hideTimer);
-            window.clearTimeout(clearTimer);
-        };
-    }, [saveNotice]);
-
     function openEditModal(user: UserManagementRow) {
         setEditingUser(user);
         setEditingRole(user.role);
@@ -165,6 +144,9 @@ export function UserManagementContent() {
         );
 
         setSaveNotice(`${editingUser.name} role updated to ${result.role}.`);
+        window.setTimeout(() => {
+            setSaveNotice(null);
+        }, 2800);
 
         setIsSavingRole(false);
         closeEditModal();
@@ -173,9 +155,9 @@ export function UserManagementContent() {
     return (
         <div className="flex flex-col min-h-screen">
             {saveNotice ? (
-                <div className="fixed right-4 top-4 z-[60] sm:right-6 sm:top-6" aria-live="polite" aria-atomic="true">
+                <div className="fixed right-4 top-4 z-60 sm:right-6 sm:top-6" aria-live="polite" aria-atomic="true">
                     <div
-                        className={`flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg transition-all duration-300 ${isSaveNoticeVisible ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'}`}
+                        className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg"
                         role="status"
                     >
                         <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
@@ -263,10 +245,12 @@ export function UserManagementContent() {
                                     <tr key={user.id} className="hover:bg-stone-50/80 transition-colors group">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <img
+                                                <Image
                                                     className="h-8 w-8 rounded-full border border-stone-200 bg-stone-100"
                                                     src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=f5f5f4&color=1c1917&size=32`}
                                                     alt={user.name}
+                                                    width={32}
+                                                    height={32}
                                                 />
                                                 <div className="ml-3">
                                                     <p className="text-sm font-medium text-stone-900">{user.name}</p>
