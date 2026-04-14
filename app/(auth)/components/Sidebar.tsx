@@ -1,9 +1,9 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboardIcon,
   BoxIcon,
@@ -64,6 +64,45 @@ const NAV_ITEMS = [...MAIN_NAV_ITEMS, ...ADMIN_NAV_ITEMS];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const pendingNavigationRef = useRef<{
+    from: string;
+    to: string;
+    startedAt: number;
+  } | null>(null);
+
+  useEffect(() => {
+    for (const item of NAV_ITEMS) {
+      router.prefetch(item.href);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const pendingNavigation = pendingNavigationRef.current;
+
+    if (!pendingNavigation) {
+      return;
+    }
+
+    const normalizedPathname = pathname.endsWith('/') && pathname.length > 1
+      ? pathname.slice(0, -1)
+      : pathname;
+    const normalizedTarget = pendingNavigation.to.endsWith('/') && pendingNavigation.to.length > 1
+      ? pendingNavigation.to.slice(0, -1)
+      : pendingNavigation.to;
+
+    if (normalizedPathname !== normalizedTarget) {
+      return;
+    }
+
+    const elapsedMs = performance.now() - pendingNavigation.startedAt;
+
+    console.log(
+      `[NAV_DELAY] ${pendingNavigation.from} -> ${pendingNavigation.to}: ${elapsedMs.toFixed(1)}ms`,
+    );
+
+    pendingNavigationRef.current = null;
+  }, [pathname]);
 
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 box-border bg-white text-stone-700 flex-col z-20 border-r border-stone-200">
@@ -92,6 +131,15 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              prefetch
+              onMouseEnter={() => router.prefetch(item.href)}
+              onClick={() => {
+                pendingNavigationRef.current = {
+                  from: pathname,
+                  to: item.href,
+                  startedAt: performance.now(),
+                };
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${isActive ? 'bg-[#8B1D1D]/10 text-[#8B1D1D] relative' : 'hover:bg-stone-100 hover:text-stone-900'}`}
               aria-current={isActive ? 'page' : undefined}
             >
