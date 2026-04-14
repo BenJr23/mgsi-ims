@@ -372,6 +372,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 			}
 		}
 
+		
 		console.log("[Branches Action] Fetching branches", {
 			traceId,
 			url: BRANCHES_API_URL,
