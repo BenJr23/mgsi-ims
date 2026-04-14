@@ -1,6 +1,9 @@
 "use server";
 
+import { auth } from '@/lib/auth';
+import { createAuditLog } from '@/lib/audit-log';
 import { prisma } from '@/lib/prisma';
+import { headers } from 'next/headers';
 
 export type UserManagementMetric = {
     name: string;
@@ -39,6 +42,23 @@ type UpdateUserRoleResult =
         ok: false;
         message: string;
     };
+
+async function logUserManagementAudit(input: {
+    action: string;
+    status: 'SUCCESS' | 'FAILED';
+    message: string;
+    userId?: string | null;
+    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}) {
+    await createAuditLog({
+        action: input.action,
+        module: 'User Management',
+        status: input.status,
+        severity: input.severity ?? (input.status === 'SUCCESS' ? 'LOW' : 'MEDIUM'),
+        message: input.message,
+        userId: input.userId ?? null,
+    });
+}
 
 function formatRole(role: 'ADMIN' | 'USER' | 'MANAGER'): UserManagementRow['role'] {
     if (role === 'ADMIN') {
@@ -165,8 +185,23 @@ export async function updateUserRoleAction(
     userId: string,
     role: UserManagementEditableRole,
 ): Promise<UpdateUserRoleResult> {
+    let auditUserId: string | null = null;
+
     try {
+        const session = await auth.api.getSession({
+            headers: await headers(),
+        });
+
+        auditUserId = session?.user?.id ?? null;
+
         if (!userId) {
+            await logUserManagementAudit({
+                action: 'Update user role',
+                status: 'FAILED',
+                message: 'Update failed: User id is required.',
+                userId: auditUserId,
+            });
+
             return {
                 ok: false,
                 message: 'User id is required.',
@@ -182,15 +217,32 @@ export async function updateUserRoleAction(
             },
         });
 
+        await logUserManagementAudit({
+            action: 'Update user role',
+            status: 'SUCCESS',
+            message: `Updated role for user ${userId} to ${role}.`,
+            userId: auditUserId,
+        });
+
         return {
             ok: true,
             role,
         };
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        await logUserManagementAudit({
+            action: 'Update user role',
+            status: 'FAILED',
+            severity: 'HIGH',
+            message: `Role update failed for user ${userId}: ${errorMessage}`,
+            userId: auditUserId,
+        });
+
         console.error('[User Management Action] Failed to update user role', {
             userId,
             role,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: errorMessage,
         });
 
         return {
