@@ -12,6 +12,7 @@ type AuthResult = {
   message: string;
 };
 
+
 type LocalRole = "ADMIN" | "MANAGER" | "USER";
 
 type ExternalUser = {
