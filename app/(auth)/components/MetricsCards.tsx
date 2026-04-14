@@ -18,6 +18,22 @@ type MetricsValues = {
   maintenanceLoad: string;
 };
 
+function MetricsCardsLoadingSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" aria-hidden="true">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={`metric-loading-skeleton-${index}`}
+          className="bg-white rounded-xl p-6 shadow-sm border border-stone-200 animate-pulse">
+
+          <div className="h-4 w-24 rounded bg-stone-200" />
+          <div className="mt-3 h-7 w-20 rounded bg-stone-200" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const DEFAULT_METRICS: MetricsValues = {
   totalSkus: '--',
   inventoryValue: '--',
@@ -55,18 +71,27 @@ const itemVariants: Variants = {
 
 export function MetricsCards() {
   const [values, setValues] = useState<MetricsValues>(DEFAULT_METRICS);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadMetrics() {
+      setIsLoading(true);
+
       const result = await fetchDashboardMetricsAction();
 
-      if (!isMounted || !result.ok) {
+      if (!isMounted) {
+        return;
+      }
+
+      if (!result.ok) {
+        setIsLoading(false);
         return;
       }
 
       setValues(result.metrics);
+      setIsLoading(false);
     }
 
     void loadMetrics();
@@ -113,6 +138,10 @@ export function MetricsCards() {
     ],
     [values],
   );
+
+  if (isLoading) {
+    return <MetricsCardsLoadingSkeleton />;
+  }
 
   return (
     <motion.div
