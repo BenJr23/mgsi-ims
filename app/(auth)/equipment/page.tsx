@@ -77,13 +77,14 @@ function formatStatus(status: EquipmentStatus) {
 }
 
 function formatEquipmentQrLink(qrCode: string): string {
+  const preferredProtocol = process.env.NODE_ENV === 'development' ? 'http:' : 'https:';
+
   try {
     const parsedUrl = new URL(qrCode);
-    return `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}${parsedUrl.search}`;
+    return `${preferredProtocol}//${parsedUrl.host}${parsedUrl.pathname}${parsedUrl.search}`;
   } catch {
-    return qrCode.startsWith('http://') || qrCode.startsWith('https://')
-      ? qrCode
-      : `https://${qrCode}`;
+    const normalized = qrCode.replace(/^https?:\/\//i, '');
+    return `${preferredProtocol}//${normalized}`;
   }
 }
 

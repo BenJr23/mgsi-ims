@@ -74,14 +74,48 @@ const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
 const EQUIPMENT_CACHE_TTL_SECONDS = 300;
 const EQUIPMENT_ROUTE_PREFIX = "/equipment";
 
-function getAppBaseUrl(): string {
-	const configuredUrl = process.env.NEXT_PUBLIC_QR_BASE_URL?.trim() || "localhost:3000";
-
-	if (/^https?:\/\//i.test(configuredUrl)) {
-		return configuredUrl.replace(/\/$/, "");
+function toHttpsUrl(rawUrl: string): string {
+	const trimmed = rawUrl.trim().replace(/\/$/, "");
+	if (!trimmed) {
+		return "";
 	}
 
-	return `https://${configuredUrl.replace(/\/$/, "")}`;
+	if (/^https?:\/\//i.test(trimmed)) {
+		return trimmed;
+	}
+
+	return `https://${trimmed}`;
+}
+
+function getAppBaseUrl(): string {
+	const configuredUrlCandidates = [
+		process.env.NEXT_PUBLIC_QR_BASE_URL,
+		process.env.NEXT_PUBLIC_APP_URL,
+		process.env.NEXTAUTH_URL,
+		process.env.VERCEL_PROJECT_PRODUCTION_URL,
+	].filter((value): value is string => Boolean(value?.trim()));
+
+	for (const candidate of configuredUrlCandidates) {
+		const normalized = toHttpsUrl(candidate);
+		if (!normalized) {
+			continue;
+		}
+
+		try {
+			const parsed = new URL(normalized);
+			if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+				continue;
+			}
+
+			return `${parsed.protocol}//${parsed.host}`;
+		} catch {
+			continue;
+		}
+	}
+
+	throw new Error(
+		"QR base URL is not configured with a deployed domain. Set NEXT_PUBLIC_QR_BASE_URL to your production URL.",
+	);
 }
 
 function generateEquipmentSku(): string {
