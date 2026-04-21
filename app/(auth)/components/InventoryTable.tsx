@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import {
@@ -16,6 +16,7 @@ import {
 } from '@/app/_actions/dashboard';
 
 type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
+type StockStatusFilter = StockStatus | 'ALL';
 
 function getStatusStyles(status: StockStatus) {
   switch (status) {
@@ -48,13 +49,27 @@ export function InventoryTable() {
   const [products, setProducts] = useState<DashboardInventoryOverviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StockStatusFilter>('ALL');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<{
     productId: string;
     top: number;
     left: number;
   } | null>(null);
-  const maxStock = Math.max(...products.map((item) => item.stockQty), 1);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
+  const filteredProducts = useMemo(() => {
+    if (statusFilter === 'ALL') {
+      return products;
+    }
+
+    return products.filter((item) => item.status === statusFilter);
+  }, [products, statusFilter]);
+
+  const maxStock = Math.max(...filteredProducts.map((item) => item.stockQty), 1);
+
+  const activeFilterCount = statusFilter === 'ALL' ? 0 : 1;
 
   const handleViewProduct = (productId: string) => {
     setOpenMenu(null);
@@ -89,7 +104,7 @@ export function InventoryTable() {
   };
 
   const handleExportPdf = async () => {
-    if (products.length === 0 || isExporting) {
+    if (filteredProducts.length === 0 || isExporting) {
       return;
     }
 
@@ -117,7 +132,7 @@ export function InventoryTable() {
       autoTable(doc, {
         startY: 72,
         head: [['Product', 'SKU', 'Category', 'Stock Qty', 'Status', 'Last Updated']],
-        body: products.map((product) => [
+        body: filteredProducts.map((product) => [
           product.name,
           product.sku,
           product.category,
@@ -175,6 +190,19 @@ export function InventoryTable() {
   }, []);
 
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!filterPanelRef.current?.contains(event.target as Node)) {
+        setIsFilterPanelOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!openMenu) {
       return;
     }
@@ -222,31 +250,75 @@ export function InventoryTable() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+          <div ref={filterPanelRef} className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => setIsFilterPanelOpen((open) => !open)}
+              className="relative inline-flex items-center justify-center p-2 border border-stone-200 rounded-lg bg-stone-50 text-stone-700 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              aria-label="Open filters"
+              title="Filters"
+            >
+              <FilterIcon className="h-4 w-4" />
+              {activeFilterCount > 0 ? (
+                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
 
-            <FilterIcon className="w-4 h-4" aria-hidden="true" />
-            Filter
-          </button>
+            {isFilterPanelOpen ? (
+              <div className="absolute right-0 mt-2 w-[min(90vw,20rem)] rounded-lg border border-stone-200 bg-white shadow-lg p-3 z-20">
+                <label className="block text-xs font-medium text-stone-600">
+                  Status
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value as StockStatusFilter)}
+                    className="mt-1 w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    aria-label="Filter by status"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="In Stock">In Stock</option>
+                    <option value="Low Stock">Low Stock</option>
+                    <option value="Out of Stock">Out of Stock</option>
+                  </select>
+                </label>
+
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('ALL')}
+                    className="px-3 py-1.5 text-xs font-medium text-stone-700 bg-stone-100 rounded-md hover:bg-stone-200"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterPanelOpen(false)}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-stone-900 rounded-md hover:bg-stone-700"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={handleExportPdf}
-            disabled={isLoading || isExporting || products.length === 0}
+            disabled={isLoading || isExporting || filteredProducts.length === 0}
             className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-lg hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
 
             <DownloadIcon className="w-4 h-4" aria-hidden="true" />
             {isExporting ? 'Exporting...' : 'Export'}
           </button>
-          <button
+          {/* <button
             type="button"
             disabled
             className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-900 bg-amber-400 border border-transparent rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
 
             <PlusIcon className="w-4 h-4" aria-hidden="true" />
             Add Product
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -315,7 +387,7 @@ export function InventoryTable() {
               </tr>
             ) : null}
 
-            {!isLoading && !error ? products.map((product) => {
+            {!isLoading && !error ? filteredProducts.map((product) => {
               const percentage = Math.min(100, Math.max(0, product.stockQty / maxStock * 100));
 
               return (
@@ -391,7 +463,7 @@ export function InventoryTable() {
 
             }) : null}
 
-            {!isLoading && !error && products.length === 0 ? (
+            {!isLoading && !error && filteredProducts.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-8 text-center text-sm text-stone-500">
                   No inventory records found.

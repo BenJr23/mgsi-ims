@@ -110,7 +110,7 @@ export function Sidebar() {
   }, [pathname]);
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 box-border flex-col z-20 bg-[#dfe3ea] text-black">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 box-border flex-col z-20 bg-[#dfe3ea] text-black overflow-hidden">
       {/* Logo Area */}
       <div className="h-17.5 box-border flex items-center px-5 border-b border-[#cdd3dd]">
         <Image
@@ -125,7 +125,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav
-        className="flex-1 overflow-y-auto overflow-x-visible py-6 pl-3 pr-0 space-y-1"
+        className="flex-1 overflow-y-auto overflow-x-hidden py-6 pl-3 pr-0 space-y-1"
         aria-label="Sidebar Navigation"
       >
         {NAV_ITEMS.map((item, index) => {
