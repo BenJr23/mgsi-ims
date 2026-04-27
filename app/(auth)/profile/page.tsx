@@ -67,8 +67,6 @@ export default async function ProfileRoutePage() {
         userRole={profileData?.role ?? fallbackRole}
         userImage={profileData?.image ?? null}
         userPhone={profileData?.phoneNumber ?? ''}
-        userCompanyId={profileData?.companyId ?? null}
-        availableCompanies={[]}
         userCreatedAt={profileData?.createdAt ?? null}
         lastLogin={profileData?.lastLogin ?? null}
       />

@@ -14,7 +14,6 @@ type ProfilePageData = {
   role: LocalRole;
   image: string | null;
   phoneNumber: string | null;
-  companyId: string | null;
   createdAt: string | null;
   lastLogin: string | null;
 };
@@ -62,6 +61,12 @@ export async function getProfilePageDataCached(): Promise<ProfilePageDataResult>
       };
     }
 
+    const latestSession = await prisma.session.findFirst({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
     return {
       success: true,
       data: {
@@ -71,9 +76,8 @@ export async function getProfilePageDataCached(): Promise<ProfilePageDataResult>
         role: user.role,
         image: user.image,
         phoneNumber: user.phoneNumber,
-        companyId: null,
         createdAt: user.createdAt.toISOString(),
-        lastLogin: null,
+        lastLogin: latestSession?.createdAt.toISOString() ?? null,
       },
     };
   } catch {
