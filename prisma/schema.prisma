@@ -59,7 +59,6 @@ model AuditLog {
   status    AuditStatus   @default(SUCCESS)
   severity  AuditSeverity @default(LOW)
   message   String?
-  ipAddress String?
   userAgent String?
   metadata  Json?
   userId    String?

@@ -11,7 +11,6 @@ export type AuditLogRow = {
     user: string;
     action: string;
     module: string;
-    ip: string;
     severity: AuditSeverity;
     status: AuditStatus;
 };
@@ -29,7 +28,13 @@ type FetchAuditLogsResult =
 export async function fetchAuditLogsAction(limit = 250): Promise<FetchAuditLogsResult> {
     try {
         const logs = await prisma.auditLog.findMany({
-            include: {
+            select: {
+                id: true,
+                createdAt: true,
+                action: true,
+                module: true,
+                severity: true,
+                status: true,
                 user: {
                     select: {
                         name: true,
@@ -50,7 +55,6 @@ export async function fetchAuditLogsAction(limit = 250): Promise<FetchAuditLogsR
                 user: row.user?.name ?? 'Unknown',
                 action: row.action,
                 module: row.module,
-                ip: row.ipAddress ?? 'Unknown',
                 severity: row.severity,
                 status: row.status,
             })),

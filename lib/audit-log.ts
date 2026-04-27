@@ -7,7 +7,6 @@ type CreateAuditLogInput = {
     severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     message?: string;
     userId?: string | null;
-    ipAddress?: string | null;
     userAgent?: string | null;
 };
 
@@ -21,7 +20,6 @@ export async function createAuditLog(input: CreateAuditLogInput): Promise<void> 
                 severity: input.severity ?? 'LOW',
                 message: input.message ?? null,
                 userId: input.userId ?? null,
-                ipAddress: input.ipAddress ?? null,
                 userAgent: input.userAgent ?? null,
             },
         });

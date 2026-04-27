@@ -57,7 +57,6 @@ export async function signInWithEmailAction(input: {
   const email = input.email.trim().toLowerCase();
   const credentialProviderId = "credential";
   const requestHeaders = await headers();
-  const ipAddress = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = requestHeaders.get("user-agent");
 
   try {
@@ -72,7 +71,6 @@ export async function signInWithEmailAction(input: {
         status: "FAILED",
         severity: "MEDIUM",
         message: "BMS secret key missing during sign in.",
-        ipAddress,
         userAgent,
       });
 
@@ -104,7 +102,6 @@ export async function signInWithEmailAction(input: {
         status: "FAILED",
         severity: "HIGH",
         message: `Failed sign in attempt for ${email}`,
-        ipAddress,
         userAgent,
       });
 
@@ -145,7 +142,6 @@ export async function signInWithEmailAction(input: {
         severity: "HIGH",
         message: `Role mapping denied sign in for ${email}`,
         userId: resolvedUserId,
-        ipAddress,
         userAgent,
       });
 
@@ -245,7 +241,6 @@ export async function signInWithEmailAction(input: {
         severity: "MEDIUM",
         message: `Unable to sync local account for ${email}`,
         userId: resolvedUserId,
-        ipAddress,
         userAgent,
       });
 
@@ -270,7 +265,6 @@ export async function signInWithEmailAction(input: {
       severity: "LOW",
       message: `${fetchedUser.email} signed in successfully`,
       userId: resolvedUserId,
-      ipAddress,
       userAgent,
     });
 
@@ -282,7 +276,6 @@ export async function signInWithEmailAction(input: {
       status: "FAILED",
       severity: "MEDIUM",
       message: `Unhandled sign in failure for ${email}`,
-      ipAddress,
       userAgent,
     });
 
@@ -295,7 +288,6 @@ export async function signInWithEmailAction(input: {
 
 export async function signOutAction(): Promise<AuthResult> {
   const requestHeaders = await headers();
-  const ipAddress = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = requestHeaders.get("user-agent");
 
   try {
@@ -314,7 +306,6 @@ export async function signOutAction(): Promise<AuthResult> {
       severity: "LOW",
       message: `${session?.user?.email ?? "Unknown user"} signed out`,
       userId: session?.user?.id ?? null,
-      ipAddress,
       userAgent,
     });
 
@@ -326,7 +317,6 @@ export async function signOutAction(): Promise<AuthResult> {
       status: "FAILED",
       severity: "MEDIUM",
       message: "Sign out failed.",
-      ipAddress,
       userAgent,
     });
 

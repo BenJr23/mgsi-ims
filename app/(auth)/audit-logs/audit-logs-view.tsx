@@ -70,7 +70,7 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                 return true;
             }
 
-            return [row.id, row.user, row.action, row.module, row.ip]
+            return [row.id, row.user, row.action, row.module]
                 .join(' ')
                 .toLowerCase()
                 .includes(normalizedQuery);
@@ -99,13 +99,12 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
             return;
         }
 
-        const header = ['Timestamp', 'User', 'Action', 'Module', 'IP', 'Severity', 'Status'];
+        const header = ['Timestamp', 'User', 'Action', 'Module', 'Severity', 'Status'];
         const rows = filteredLogs.map((row) => [
             formatDateTime(row.timestamp),
             row.user,
             row.action,
             row.module,
-            row.ip,
             row.severity,
             row.status,
         ]);
@@ -154,13 +153,12 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
 
             autoTable(doc, {
                 startY: 72,
-                head: [['Timestamp', 'User', 'Action', 'Module', 'IP', 'Severity', 'Status']],
+                head: [['Timestamp', 'User', 'Action', 'Module', 'Severity', 'Status']],
                 body: filteredLogs.map((row) => [
                     formatDateTime(row.timestamp),
                     row.user,
                     row.action,
                     row.module,
-                    row.ip,
                     row.severity,
                     row.status,
                 ]),
@@ -263,7 +261,7 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                             type="text"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
-                            placeholder="Search by ID, user, action, module, or IP..."
+                            placeholder="Search by ID, user, action, or module..."
                             className="placeholder-gray-600 text-gray-900 w-full pl-9 pr-3 py-2 rounded-lg border border-stone-200 bg-stone-50 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                             aria-label="Search audit logs"
                         />
@@ -303,7 +301,6 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">User</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Action</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Module</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">IP</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Severity</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Status</th>
                                 </tr>
@@ -316,7 +313,6 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                                             <td className="px-4 py-3 text-sm text-stone-800 whitespace-nowrap">{row.user}</td>
                                             <td className="px-4 py-3 text-sm text-stone-800 min-w-56">{row.action}</td>
                                             <td className="px-4 py-3 text-sm text-stone-600 whitespace-nowrap">{row.module}</td>
-                                            <td className="px-4 py-3 text-sm text-stone-600 whitespace-nowrap">{row.ip}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getSeverityBadge(row.severity)}`}>
                                                     {row.severity}
@@ -331,7 +327,7 @@ export function AuditLogsView({ initialLogs }: AuditLogsViewProps) {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td className="px-4 py-8 text-sm text-stone-500 text-center" colSpan={7}>
+                                        <td className="px-4 py-8 text-sm text-stone-500 text-center" colSpan={6}>
                                             No audit logs found for the current filters.
                                         </td>
                                     </tr>
