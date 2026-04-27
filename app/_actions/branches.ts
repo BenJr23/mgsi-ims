@@ -131,6 +131,41 @@ function formatDisplayDate(date: Date): string {
 	}).format(date);
 }
 
+async function getEquipmentCountByAreaId(): Promise<Map<string, number>> {
+	const equipmentCounts = await prisma.equipment.groupBy({
+		by: ["areaId"],
+		where: {
+			deletedAt: null,
+		},
+		_count: {
+			_all: true,
+		},
+	});
+
+	return new Map(equipmentCounts.map((row) => [row.areaId, row._count._all]));
+}
+
+function applyLiveEquipmentCountsToBranches(
+	branches: BranchItem[],
+	equipmentCountByAreaId: Map<string, number>,
+): BranchItem[] {
+	return branches.map((branch) => {
+		const areas = (branch.areas ?? []).map((area) => ({
+			...area,
+			equipCount: equipmentCountByAreaId.get(area.id) ?? 0,
+		}));
+
+		const totalEquipmentCount = areas.reduce((sum, area) => sum + (area.equipCount ?? 0), 0);
+
+		return {
+			...branch,
+			areaCount: areas.length,
+			equipCount: totalEquipmentCount,
+			areas,
+		};
+	});
+}
+
 async function warmEquipmentModelsCacheIfMissing(
 	redisUrl: string,
 	redisToken: string,
@@ -309,8 +344,8 @@ async function warmDependentCachesFromBranches(
 
 export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 	const secretKey = process.env.BMS_SECRET_KEY?.trim();
-		const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
-		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 	const traceId = `branches_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 	if (!secretKey) {
@@ -339,23 +374,28 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 
 				if (cacheResponse.result) {
 					const cachedBranches = JSON.parse(cacheResponse.result) as BranchItem[];
+					const equipmentCountByAreaId = await getEquipmentCountByAreaId();
+					const branchesWithLiveCounts = applyLiveEquipmentCountsToBranches(
+						cachedBranches,
+						equipmentCountByAreaId,
+					);
 
 					await warmDependentCachesFromBranches(
 						redisUrl,
 						redisToken,
 						traceId,
-						cachedBranches,
+						branchesWithLiveCounts,
 					);
 
 					console.log("[Branches Action] Cache hit", {
 						traceId,
 						key: BRANCHES_CACHE_KEY,
-						count: cachedBranches.length,
+						count: branchesWithLiveCounts.length,
 					});
 
 					return {
 						ok: true,
-						branches: cachedBranches,
+						branches: branchesWithLiveCounts,
 					};
 				}
 
@@ -422,19 +462,7 @@ export async function fetchBranchesAction(): Promise<FetchBranchesResult> {
 			},
 		});
 
-		const equipmentCounts = await prisma.equipment.groupBy({
-			by: ["areaId"],
-			where: {
-				deletedAt: null,
-			},
-			_count: {
-				_all: true,
-			},
-		});
-
-		const equipmentCountByAreaId = new Map(
-			equipmentCounts.map((row) => [row.areaId, row._count._all]),
-		);
+		const equipmentCountByAreaId = await getEquipmentCountByAreaId();
 
 		console.log("[Branches Action] Fetched local areas from database", {
 			traceId,

@@ -28,7 +28,10 @@ export default async function EquipmentItemPage({ params }: EquipmentItemPagePro
 
   const [equipmentResult, branchesResult] = await Promise.all([
     prisma.equipment.findFirst({
-      where: { sku },
+      where: {
+        sku,
+        deletedAt: null,
+      },
       select: {
         id: true,
         qrCode: true,

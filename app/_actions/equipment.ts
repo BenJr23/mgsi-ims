@@ -184,6 +184,30 @@ async function invalidateEquipmentCaches(): Promise<void> {
 	}
 }
 
+async function removeSoftDeletedFromCachedEquipment(
+	cachedEquipment: EquipmentListItem[],
+): Promise<EquipmentListItem[]> {
+	if (cachedEquipment.length === 0) {
+		return cachedEquipment;
+	}
+
+	const activeEquipment = await prisma.equipment.findMany({
+		where: {
+			id: {
+				in: cachedEquipment.map((item) => item.id),
+			},
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+		},
+	});
+
+	const activeEquipmentIds = new Set(activeEquipment.map((item) => item.id));
+
+	return cachedEquipment.filter((item) => activeEquipmentIds.has(item.id));
+}
+
 export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 	const traceId = `equipment_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
@@ -199,15 +223,44 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 
 				if (cacheResponse.result) {
 					const cachedEquipment = JSON.parse(cacheResponse.result) as EquipmentListItem[];
+					const sanitizedEquipment = await removeSoftDeletedFromCachedEquipment(cachedEquipment);
+
+					if (sanitizedEquipment.length !== cachedEquipment.length) {
+						console.log("[Equipment Action] Removed soft-deleted rows from cache payload", {
+							traceId,
+							key: EQUIPMENT_CACHE_KEY,
+							before: cachedEquipment.length,
+							after: sanitizedEquipment.length,
+						});
+
+						try {
+							await runRedisCommand<string>(redisUrl, redisToken, [
+								"SET",
+								EQUIPMENT_CACHE_KEY,
+								JSON.stringify(sanitizedEquipment),
+								"EX",
+								EQUIPMENT_CACHE_TTL_SECONDS,
+							]);
+						} catch (cacheWriteError) {
+							console.warn("[Equipment Action] Cache write failed after soft-delete reconciliation", {
+								traceId,
+								error:
+									cacheWriteError instanceof Error
+										? cacheWriteError.message
+										: "Unknown cache write error",
+							});
+						}
+					}
+
 					console.log("[Equipment Action] Cache hit", {
 						traceId,
 						key: EQUIPMENT_CACHE_KEY,
-						count: cachedEquipment.length,
+						count: sanitizedEquipment.length,
 					});
 
 					return {
 						ok: true,
-						equipment: cachedEquipment,
+						equipment: sanitizedEquipment,
 					};
 				}
 
