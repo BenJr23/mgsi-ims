@@ -8,6 +8,12 @@ import { fetchBranchesAction } from "@/app/_actions/branches";
 import { fetchEquipmentModelsAction } from "@/app/_actions/equipmentmodel";
 
 type EquipmentStatus = "AVAILABLE" | "MAINTENANCE" | "RETIRED" | "LOST";
+type EquipmentHistoryEvent =
+	| "INITIAL"
+	| "LOCATION_CHANGED"
+	| "STATUS_CHANGED"
+	| "LOCATION_AND_STATUS_CHANGED"
+	| "DELETED";
 
 type CreateEquipmentResult =
 	| {
@@ -401,6 +407,18 @@ function isValidEquipmentStatus(status: string): status is EquipmentStatus {
 	return status === "AVAILABLE" || status === "MAINTENANCE" || status === "RETIRED" || status === "LOST";
 }
 
+function getHistoryEvent(areaChanged: boolean, statusChanged: boolean): EquipmentHistoryEvent {
+	if (areaChanged && statusChanged) {
+		return "LOCATION_AND_STATUS_CHANGED";
+	}
+
+	if (areaChanged) {
+		return "LOCATION_CHANGED";
+	}
+
+	return "STATUS_CHANGED";
+}
+
 async function logEquipmentAudit(input: {
 	action: string;
 	status: "SUCCESS" | "FAILED";
@@ -539,12 +557,14 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
-		const createdEquipment = await prisma.$transaction(
-			Array.from({ length: requestedQuantity }, () => {
+		const createdEquipment = await prisma.$transaction(async (tx) => {
+			const createdRows: Array<{ id: string; sku: string | null; qrCode: string }> = [];
+
+			for (let i = 0; i < requestedQuantity; i += 1) {
 				const generatedSku = generateEquipmentSku();
 				const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
 
-				return prisma.equipment.create({
+				const created = await tx.equipment.create({
 					data: {
 						qrCode: generatedQrCode,
 						sku: generatedSku,
@@ -559,8 +579,22 @@ export async function createEquipmentAction(input: {
 						qrCode: true,
 					},
 				});
-			}),
-		);
+
+				await tx.equipmentLocationHistory.create({
+					data: {
+						equipmentId: created.id,
+						areaId: normalizedAreaId,
+						status: normalizedStatus,
+						event: "INITIAL",
+						changedById: session.user.id,
+					},
+				});
+
+				createdRows.push(created);
+			}
+
+			return createdRows;
+		});
 
 		const firstCreated = createdEquipment[0];
 
@@ -702,6 +736,8 @@ export async function updateEquipmentAction(input: {
 			},
 			select: {
 				id: true,
+				areaId: true,
+				status: true,
 			},
 		});
 
@@ -718,17 +754,42 @@ export async function updateEquipmentAction(input: {
 			};
 		}
 
-		await prisma.equipment.update({
-			where: {
-				id: equipmentId,
-			},
-			data: {
-				status: input.status,
-				areaId,
-			},
-			select: {
-				id: true,
-			},
+		const areaChanged = existingEquipment.areaId !== areaId;
+		const statusChanged = existingEquipment.status !== input.status;
+
+		if (!areaChanged && !statusChanged) {
+			return {
+				ok: true,
+				equipmentId,
+				message: "No changes detected.",
+			};
+		}
+
+		const historyEvent = getHistoryEvent(areaChanged, statusChanged);
+
+		await prisma.$transaction(async (tx) => {
+			await tx.equipment.update({
+				where: {
+					id: equipmentId,
+				},
+				data: {
+					status: input.status,
+					areaId,
+				},
+				select: {
+					id: true,
+				},
+			});
+
+			await tx.equipmentLocationHistory.create({
+				data: {
+					equipmentId,
+					areaId,
+					status: input.status,
+					event: historyEvent,
+					changedById: session.user.id,
+				},
+			});
 		});
 
 		await invalidateEquipmentCaches();
@@ -736,7 +797,7 @@ export async function updateEquipmentAction(input: {
 		await logEquipmentAudit({
 			action: "Update equipment",
 			status: "SUCCESS",
-			message: `Updated equipment ${equipmentId} with status ${input.status}.`,
+			message: `Updated equipment ${equipmentId} with status ${input.status} and area ${areaId}.`,
 			userId: session.user.id,
 		});
 
@@ -820,6 +881,8 @@ export async function deleteEquipmentAction(input: {
 			},
 			select: {
 				id: true,
+				areaId: true,
+				status: true,
 			},
 		});
 
@@ -836,16 +899,28 @@ export async function deleteEquipmentAction(input: {
 			};
 		}
 
-		await prisma.equipment.update({
-			where: {
-				id: equipmentId,
-			},
-			data: {
-				deletedAt: new Date(),
-			},
-			select: {
-				id: true,
-			},
+		await prisma.$transaction(async (tx) => {
+			await tx.equipment.update({
+				where: {
+					id: equipmentId,
+				},
+				data: {
+					deletedAt: new Date(),
+				},
+				select: {
+					id: true,
+				},
+			});
+
+			await tx.equipmentLocationHistory.create({
+				data: {
+					equipmentId,
+					areaId: existingEquipment.areaId,
+					status: existingEquipment.status,
+					event: "DELETED",
+					changedById: session.user.id,
+				},
+			});
 		});
 
 		await invalidateEquipmentCaches();

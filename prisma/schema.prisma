@@ -49,7 +49,16 @@ model User {
   areas           Area[]           @relation("AreaCreatedBy")
   equipmentModels EquipmentModel[] @relation("EquipmentModelCreatedBy")
   equipment       Equipment[]      @relation("EquipmentCreatedBy")
+  equipmentHistory EquipmentLocationHistory[] @relation("EquipmentHistoryChangedBy")
   auditLogs       AuditLog[]
+}
+
+enum EquipmentHistoryEvent {
+  INITIAL
+  LOCATION_CHANGED
+  STATUS_CHANGED
+  LOCATION_AND_STATUS_CHANGED
+  DELETED
 }
 
 model AuditLog {
@@ -181,9 +190,28 @@ model Equipment {
   deletedAt        DateTime?
   equipmentModel   EquipmentModel  @relation(fields: [equipmentModelId], references: [id])
   createdBy        User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  locationHistory  EquipmentLocationHistory[]
 
   @@index([equipmentModelId])
   @@index([areaId])
   @@index([createdById])
   @@map("equipment")
+}
+
+model EquipmentLocationHistory {
+  id          String                @id @default(cuid())
+  equipmentId String
+  areaId      String
+  status      EquipmentStatus
+  event       EquipmentHistoryEvent @default(LOCATION_AND_STATUS_CHANGED)
+  changedById String?
+  changedAt   DateTime              @default(now())
+  equipment   Equipment             @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  changedBy   User?                 @relation("EquipmentHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([equipmentId])
+  @@index([changedAt])
+  @@index([changedById])
+  @@index([equipmentId, changedAt])
+  @@map("equipment_location_history")
 }
