@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RegisterEquipmentModal } from '../components/modals/RegisterEquipmentModal';
+import { ViewEquipmentList } from '../components/modals/ViewEquipmentList';
 import { EditEquipmentModal } from '../components/modals/EditEquipmentModal';
 import { DeleteEquipmentModal } from '../components/modals/DeleteEquipmentModal';
 import {
@@ -34,7 +35,6 @@ import {
   AlertTriangleIcon,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
 
 type EquipmentStatus = 'AVAILABLE' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
 
@@ -103,7 +103,6 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
 }
 
 export default function EquipmentPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('ALL');
@@ -111,6 +110,7 @@ export default function EquipmentPage() {
   const [selectedModelFilters, setSelectedModelFilters] = useState<string[]>([]);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isRegisterEquipmentModalOpen, setIsRegisterEquipmentModalOpen] = useState(false);
+  const [isViewEquipmentModalOpen, setIsViewEquipmentModalOpen] = useState(false);
   const [isEditEquipmentModalOpen, setIsEditEquipmentModalOpen] = useState(false);
   const [isDeleteEquipmentModalOpen, setIsDeleteEquipmentModalOpen] = useState(false);
   const [branches, setBranches] = useState<BranchItem[]>([]);
@@ -413,14 +413,15 @@ export default function EquipmentPage() {
 
   const handleOpenViewEquipment = (equipmentId: string) => {
     const target = equipment.find((item) => item.id === equipmentId);
-    if (!target?.sku) {
-      setError('Unable to open equipment details because SKU is unavailable.');
+    if (!target) {
+      setError('Unable to locate the selected equipment item.');
       setOpenMenu(null);
       return;
     }
 
     setOpenMenu(null);
-    router.push(`/equipment/${encodeURIComponent(target.sku)}`);
+    setSelectedEquipment(target);
+    setIsViewEquipmentModalOpen(true);
   };
 
   const handleOpenEditEquipment = (equipmentId: string) => {
@@ -442,13 +443,11 @@ export default function EquipmentPage() {
       return;
     }
 
-
     setSelectedEquipment(target);
     setIsDeleteEquipmentModalOpen(true);
     setOpenMenu(null);
   };
 
-  
   const handleDeleteEquipmentConfirm = async () => {
     if (!selectedEquipment) {
       return;
@@ -1114,22 +1113,20 @@ export default function EquipmentPage() {
               <tbody className="bg-white divide-y divide-stone-100">
                 {filteredEquipment.map((item) => {
                   const StatusIcon = getStatusIcon(item.status);
-                  const qrLink = formatEquipmentQrLink(item.qrCode);
                   const qrDisplay = getEquipmentQrDisplay(item.sku, item.qrCode);
 
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/80 transition-colors group">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <a
-                          href={qrLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
-                          title={qrLink}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenViewEquipment(item.id)}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline text-left"
+                          title="View equipment details"
                         >
                           <QrCodeIcon className="w-4 h-4 text-blue-600" />
                           {qrDisplay}
-                        </a>
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -1214,6 +1211,15 @@ export default function EquipmentPage() {
           </div>
         </div>
       </main>
+
+      <ViewEquipmentList
+        isOpen={isViewEquipmentModalOpen}
+        onClose={() => {
+          setIsViewEquipmentModalOpen(false);
+          setSelectedEquipment(null);
+        }}
+        equipment={selectedEquipment}
+      />
 
       {openMenu
         ? createPortal(
