@@ -3,16 +3,21 @@
 import React, { useEffect, useRef, useState, useTransition } from 'react';
 import { UserCircle2Icon, LogOutIcon } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 import { signOutAction } from '@/app/_actions/auth';
 import { useRouter } from 'next/navigation';
 
-export function TopBar() {
+type TopBarProps = {
+  userName?: string | null;
+};
+
+export function TopBar({ userName }: TopBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
+  const resolvedUserName = userName?.trim() || 'User';
+  const userInitial = resolvedUserName.charAt(0).toUpperCase();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,17 +71,16 @@ export function TopBar() {
               type="button"
               onClick={() => setIsDropdownOpen((prev) => !prev)}
               className="flex items-center gap-2 rounded-full transition-opacity hover:opacity-80"
-              aria-label="User menu"
+              aria-label={`User menu for ${resolvedUserName}`}
               aria-expanded={isDropdownOpen}
               aria-haspopup="menu"
             >
-              <Image
-                className="h-8 w-8 rounded-full border border-stone-200 bg-stone-100 object-cover"
-                src="https://ui-avatars.com/api/?name=Jane+Doe&background=f5f5f4&color=1c1917"
-                alt="User avatar"
-                width={32}
-                height={32}
-              />
+              <span
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-sm font-semibold text-stone-700"
+                aria-hidden="true"
+              >
+                {userInitial}
+              </span>
             </button>
 
             {isDropdownOpen ? (

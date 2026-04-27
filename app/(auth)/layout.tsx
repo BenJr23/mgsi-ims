@@ -19,7 +19,7 @@ export default async function AuthLayout({ children }: AuthLayoutProps) {
 		<div className="flex h-screen overflow-hidden bg-stone-50 font-sans selection:bg-amber-200 selection:text-amber-900">
 			<Sidebar />
 			<div className="flex h-screen flex-1 min-w-0 flex-col md:ml-64">
-				<TopBar />
+				<TopBar userName={session.user.name} />
 				<div className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0">{children}</div>
 			</div>
 		</div>

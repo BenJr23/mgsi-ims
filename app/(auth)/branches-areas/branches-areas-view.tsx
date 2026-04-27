@@ -490,15 +490,6 @@ export function BranchesAreasView() {
                             </tbody>
                           </table>
                         </div>
-
-                        <div className="mt-4 flex items-center justify-end gap-4 pt-4 border-t border-stone-200">
-                          <button className="text-xs font-medium text-stone-500 hover:text-stone-900 transition-colors">
-                            Edit Branch
-                          </button>
-                          <button className="text-xs font-medium text-rose-500 hover:text-rose-700 transition-colors">
-                            Delete Branch
-                          </button>
-                        </div>
                       </div>
                     </motion.div>
                   }
