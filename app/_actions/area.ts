@@ -196,6 +196,7 @@ export async function createAreaAction(input: {
 			},
 		});
 
+		
 		console.log("[Area Action] Area created successfully", {
 			traceId,
 			areaId: area.id,
