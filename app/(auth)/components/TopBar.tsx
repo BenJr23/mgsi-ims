@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useTransition } from 'react';
-import { UserCircle2Icon, LogOutIcon } from 'lucide-react';
+import { MenuIcon, UserCircle2Icon, LogOutIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { signOutAction } from '@/app/_actions/auth';
@@ -9,9 +9,10 @@ import { useRouter } from 'next/navigation';
 
 type TopBarProps = {
   userName?: string | null;
+  onMenuClick?: () => void;
 };
 
-export function TopBar({ userName }: TopBarProps) {
+export function TopBar({ userName, onMenuClick }: TopBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -51,6 +52,15 @@ export function TopBar({ userName }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 box-border border-b border-stone-200 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex h-17.5 w-full max-w-400 items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 shadow-sm transition-colors hover:bg-stone-50 md:hidden"
+          aria-label="Open navigation menu"
+        >
+          <MenuIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+
         {/* Search */}
         <div className="min-w-0 flex-1">
           <div
