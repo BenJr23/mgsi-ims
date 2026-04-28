@@ -135,29 +135,9 @@ function buildEquipmentQrCodeUrl(sku: string): string {
 	return `${getAppBaseUrl()}${EQUIPMENT_ROUTE_PREFIX}/${encodeURIComponent(sku)}`;
 }
 
-async function generateDeterministicSku(tx: any, areaId: string, equipmentModelId: string): Promise<string> {
-	const area = await tx.area.findUnique({
-		where: { id: areaId },
-		select: { roomCode: true, roomName: true },
-	});
-
-	const model = await tx.equipmentModel.findUnique({
-		where: { id: equipmentModelId },
-		select: { modelCode: true, name: true },
-	});
-
-	let areaCode = (area?.roomCode ?? area?.name ?? areaId).toString().trim().toUpperCase();
-	areaCode = areaCode.replace(/[^A-Z0-9]/g, "");
-
-	let modelCode = (model?.modelCode ?? model?.name ?? equipmentModelId).toString().trim().toUpperCase();
-	modelCode = modelCode.replace(/[^A-Z0-9]/g, "");
-
-	const prefix = `${areaCode}-${modelCode}`;
-
+async function generateDeterministicSkuWithPrefix(tx: any, prefix: string): Promise<string> {
 	const existing = await tx.equipment.findMany({
 		where: {
-			areaId,
-			equipmentModelId,
 			sku: { startsWith: `${prefix}-` },
 		},
 		select: { sku: true },
@@ -622,6 +602,52 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
+		// Resolve area code (local area first, then API branches) and model code before transaction
+		let resolvedAreaCode = null;
+		try {
+			const localArea = await prisma.area.findUnique({
+				where: { id: normalizedAreaId },
+				select: { roomCode: true, roomName: true },
+			});
+
+			if (localArea) {
+				resolvedAreaCode = (localArea.roomCode ?? localArea.roomName ?? normalizedAreaId)
+					.toString()
+					.trim()
+					.toUpperCase();
+			}
+		} catch {
+			// ignore lookup errors and fall back to branches API
+		}
+
+		if (!resolvedAreaCode) {
+			const branchesResult = await fetchBranchesAction();
+			if (branchesResult.ok) {
+				for (const branch of branchesResult.branches) {
+					const found = (branch.areas ?? []).find((a) => a.id === normalizedAreaId);
+					if (found) {
+						resolvedAreaCode = (found.code ?? found.name ?? normalizedAreaId)
+							.toString()
+							.trim()
+							.toUpperCase();
+						break;
+					}
+				}
+			}
+		}
+
+		// Fallback to raw areaId if nothing else
+		if (!resolvedAreaCode) resolvedAreaCode = normalizedAreaId.toUpperCase();
+
+		const modelFromCache = equipmentModelsResult.models.find((m) => m.id === normalizedEquipmentModelId);
+		const resolvedModelCode = (modelFromCache?.modelCode ?? modelFromCache?.name ?? normalizedEquipmentModelId)
+			.toString()
+			.trim()
+			.toUpperCase();
+
+		const clean = (s: string) => s.replace(/[^A-Z0-9]/g, "");
+		const prefix = `${clean(resolvedAreaCode)}-${clean(resolvedModelCode)}`;
+
 		const MAX_ATTEMPTS = 5;
 		let createdEquipment: Array<{ id: string; sku: string | null; qrCode: string }> = [];
 
@@ -631,7 +657,7 @@ export async function createEquipmentAction(input: {
 					const createdRows: Array<{ id: string; sku: string | null; qrCode: string }> = [];
 
 					for (let i = 0; i < requestedQuantity; i += 1) {
-						const generatedSku = await generateDeterministicSku(tx, normalizedAreaId, normalizedEquipmentModelId);
+						const generatedSku = await generateDeterministicSkuWithPrefix(tx, prefix);
 						const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
 
 						const created = await tx.equipment.create({
@@ -667,14 +693,11 @@ export async function createEquipmentAction(input: {
 					return createdRows;
 				});
 
-				// success, break retry loop
 				break;
 			} catch (err) {
 				const errMsg = err instanceof Error ? err.message : String(err);
 				if (errMsg.includes("Unique constraint failed") && attempt < MAX_ATTEMPTS - 1) {
 					console.warn("[Equipment Action] SKU collision detected, retrying transaction", { traceId, attempt });
-					// small backoff to reduce contention
-					// eslint-disable-next-line no-await-in-loop
 					await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
 					continue;
 				}
