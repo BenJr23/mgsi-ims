@@ -365,6 +365,7 @@ export async function createEquipmentModelAction(input: {
 		}
 
 		let parsedPrice: number | null = null;
+		let parsedLifeExpectancy: number | null = null;
 		if (normalizedPrice) {
 			parsedPrice = Number(normalizedPrice);
 			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
@@ -380,6 +381,7 @@ export async function createEquipmentModelAction(input: {
 				};
 			}
 		}
+
 		if (normalizedLifeExpectancy) {
 			parsedLifeExpectancy = Number(normalizedLifeExpectancy);
 			if (
@@ -532,28 +534,10 @@ export async function updateEquipmentModelAction(input: {
 		}
 
 		let parsedPrice: number | null = null;
+		let parsedLifeExpectancy: number | null = null;
 		if (normalizedPrice) {
 			parsedPrice = Number(normalizedPrice);
 			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-						if (normalizedLifeExpectancy) {
-							parsedLifeExpectancy = Number(normalizedLifeExpectancy);
-							if (
-								Number.isNaN(parsedLifeExpectancy) ||
-								parsedLifeExpectancy < 0 ||
-								!Number.isInteger(parsedLifeExpectancy)
-							) {
-								await logEquipmentModelAudit({
-									action: "Update equipment model",
-									status: "FAILED",
-									message: "Update failed: Invalid life expectancy provided.",
-									userId: session.user.id,
-								});
-								return {
-									ok: false,
-									message: "Life expectancy must be a valid non-negative whole number.",
-								};
-							}
-						}
 				await logEquipmentModelAudit({
 					action: "Update equipment model",
 					status: "FAILED",
@@ -563,6 +547,26 @@ export async function updateEquipmentModelAction(input: {
 				return {
 					ok: false,
 					message: "Price must be a valid non-negative number.",
+				};
+			}
+		}
+
+		if (normalizedLifeExpectancy) {
+			parsedLifeExpectancy = Number(normalizedLifeExpectancy);
+			if (
+				Number.isNaN(parsedLifeExpectancy) ||
+				parsedLifeExpectancy < 0 ||
+				!Number.isInteger(parsedLifeExpectancy)
+			) {
+				await logEquipmentModelAudit({
+					action: "Update equipment model",
+					status: "FAILED",
+					message: "Update failed: Invalid life expectancy provided.",
+					userId: session.user.id,
+				});
+				return {
+					ok: false,
+					message: "Life expectancy must be a valid non-negative whole number.",
 				};
 			}
 		}
