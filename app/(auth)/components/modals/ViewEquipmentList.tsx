@@ -124,6 +124,15 @@ export function ViewEquipmentList({ isOpen, onClose, equipment }: ViewEquipmentL
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-stone-700">Purchase Date</label>
+                  <input
+                    type="text"
+                    value={equipment.purchaseDate ?? '—'}
+                    readOnly
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg shadow-sm text-sm bg-stone-50 text-stone-700"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-stone-700">Area</label>
                   <input
                     type="text"
