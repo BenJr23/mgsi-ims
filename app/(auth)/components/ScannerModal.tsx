@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { XIcon, CheckCircleIcon, AlertCircleIcon, CameraIcon } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import type { EquipmentLookupDetail } from "@/app/_actions/equipment";
-import type { AuditItemStatus } from "@/app/generated/prisma/enums";
+import type { AuditItemStatus, EquipmentStatus } from "@/app/generated/prisma/enums";
 
 type ScannerModalProps = {
   isOpen: boolean;
@@ -24,7 +24,7 @@ export function ScannerModal({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [scannedQR, setScannedQR] = useState<string | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [status, setStatus] = useState<AuditItemStatus>("PASS");
+  const [status, setStatus] = useState<EquipmentStatus>("AVAILABLE");
   const [notes, setNotes] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [equipmentDetail, setEquipmentDetail] = useState<EquipmentLookupDetail | null>(null);
@@ -66,6 +66,18 @@ export function ScannerModal({
         sku,
       });
       return sku;
+    }
+  };
+
+  const mapEquipmentStatusToAuditStatus = (value: EquipmentStatus): AuditItemStatus => {
+    switch (value) {
+      case "AVAILABLE":
+        return "PASS";
+      case "MAINTENANCE":
+        return "FAIL";
+      case "RETIRED":
+      case "LOST":
+        return "MISSING";
     }
   };
 
@@ -124,7 +136,7 @@ export function ScannerModal({
       }
     };
     // scanSession bumps when user hits "Add Another" to force a fresh scan
-  }, [isOpen, scannedQR, isDetecting, scanSession]);
+  }, [isOpen, scannedQR, scanSession]);
 
   useEffect(() => {
     if (!scannedQR) return;
@@ -181,6 +193,7 @@ export function ScannerModal({
         setEquipmentError("Unable to look up equipment right now.");
       })
       .finally(() => {
+        clearTimeout(timeoutId);
         if (isActive) setIsEquipmentLoading(false);
       });
 
@@ -193,21 +206,21 @@ export function ScannerModal({
 
   const handleSave = () => {
     if (scannedQR && equipmentDetail) {
-      onSave(equipmentDetail.id, status, notes || undefined);
+      onSave(equipmentDetail.id, mapEquipmentStatusToAuditStatus(status), notes || undefined);
       handleClose();
     }
   };
 
   const handleAddAnother = () => {
     if (scannedQR && equipmentDetail) {
-      onAddAnother(equipmentDetail.id, status, notes || undefined);
+      onAddAnother(equipmentDetail.id, mapEquipmentStatusToAuditStatus(status), notes || undefined);
       // Reset form state and bump session to restart the scanner effect
       setScannedQR(null);
       setIsDetecting(false);
       setEquipmentDetail(null);
       setEquipmentError(null);
       setIsEquipmentLoading(false);
-      setStatus("PASS");
+      setStatus("AVAILABLE");
       setNotes("");
       setScanSession((s) => s + 1);
     }
@@ -219,7 +232,7 @@ export function ScannerModal({
     setEquipmentDetail(null);
     setEquipmentError(null);
     setIsEquipmentLoading(false);
-    setStatus("PASS");
+    setStatus("AVAILABLE");
     setNotes("");
     setScanSession((s) => s + 1);
   };
@@ -231,7 +244,7 @@ export function ScannerModal({
     setEquipmentDetail(null);
     setEquipmentError(null);
     setIsEquipmentLoading(false);
-    setStatus("PASS");
+    setStatus("AVAILABLE");
     setNotes("");
     onClose();
   };
@@ -323,18 +336,20 @@ export function ScannerModal({
               {/* Status Selection */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-stone-700">Item Status:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["PASS", "FAIL", "MISSING"] as const).map((s) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(["AVAILABLE", "MAINTENANCE", "RETIRED", "LOST"] as const).map((s) => (
                     <button
                       key={s}
                       onClick={() => setStatus(s)}
                       className={`px-3 py-2 rounded-lg font-medium text-sm transition ${
                         status === s
-                          ? s === "PASS"
+                          ? s === "AVAILABLE"
                             ? "bg-emerald-600 text-white"
-                            : s === "FAIL"
-                              ? "bg-rose-600 text-white"
-                              : "bg-amber-600 text-white"
+                            : s === "MAINTENANCE"
+                              ? "bg-amber-600 text-white"
+                              : s === "RETIRED"
+                                ? "bg-stone-600 text-white"
+                                : "bg-rose-600 text-white"
                           : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                       }`}
                     >
