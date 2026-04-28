@@ -185,7 +185,6 @@ model Equipment {
   status           EquipmentStatus @default(AVAILABLE)
   areaId           String
   photoUrl         String?
-  lastAreaAssigned String?
   purchaseDate     DateTime?
   createdById      String
   createdAt        DateTime        @default(now())
