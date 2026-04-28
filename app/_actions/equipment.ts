@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
+import { uploadEquipmentPhotoToSupabase } from "@/lib/supabase-storage";
 import { headers } from "next/headers";
 import { fetchBranchesAction } from "@/app/_actions/branches";
 import { fetchEquipmentModelsAction } from "@/app/_actions/equipmentmodel";
@@ -49,12 +50,24 @@ type DeleteEquipmentResult =
 			message: string;
 		};
 
+type UploadEquipmentPhotoResult =
+	| {
+			ok: true;
+			publicUrl: string;
+			objectKey: string;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 export type EquipmentListItem = {
 	id: string;
 	qrCode: string;
 	sku: string | null;
 	equipmentModelId: string;
 	areaId: string;
+	photoUrl: string | null;
 	purchaseDate: string | null;
 	modelName: string;
 	modelType: string;
@@ -330,6 +343,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 				sku: true,
 				equipmentModelId: true,
 				status: true,
+				photoUrl: true,
 				purchaseDate: true,
 				createdAt: true,
 				equipmentModel: {
@@ -362,6 +376,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			sku: item.sku,
 			equipmentModelId: item.equipmentModelId,
 			areaId: item.areaId,
+			photoUrl: item.photoUrl,
 			purchaseDate: item.purchaseDate ? item.purchaseDate.toISOString().slice(0, 10) : null,
 			modelName: item.equipmentModel.name,
 			modelType: item.equipmentModel.type,
@@ -686,6 +701,7 @@ export async function updateEquipmentAction(input: {
 	status: EquipmentStatus;
 	areaId: string;
 	purchaseDate: string | null;
+	photoUrl?: string | null;
 }): Promise<UpdateEquipmentResult> {
 	const traceId = `equipment_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	let auditUserId: string | null = null;
@@ -762,6 +778,7 @@ export async function updateEquipmentAction(input: {
 				id: true,
 				areaId: true,
 				status: true,
+				photoUrl: true,
 			},
 		});
 
@@ -780,8 +797,9 @@ export async function updateEquipmentAction(input: {
 
 		const areaChanged = existingEquipment.areaId !== areaId;
 		const statusChanged = existingEquipment.status !== input.status;
+		const photoChanged = input.photoUrl !== undefined && existingEquipment.photoUrl !== input.photoUrl;
 
-		if (!areaChanged && !statusChanged) {
+		if (!areaChanged && !statusChanged && !photoChanged) {
 			return {
 				ok: true,
 				equipmentId,
@@ -800,6 +818,7 @@ export async function updateEquipmentAction(input: {
 					status: input.status,
 					areaId,
 					purchaseDate: normalizedPurchaseDate,
+					photoUrl: input.photoUrl,
 				},
 				select: {
 					id: true,
@@ -855,6 +874,82 @@ export async function updateEquipmentAction(input: {
 		return {
 			ok: false,
 			message: `Unable to update equipment: ${errorMessage}`,
+		};
+	}
+}
+
+export async function uploadEquipmentPhotoAction(input: {
+	equipmentId: string;
+	photoFile: File;
+}): Promise<UploadEquipmentPhotoResult> {
+	const traceId = `equipment_photo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session?.user) {
+			return {
+				ok: false,
+				message: "You must be logged in to upload a photo.",
+			};
+		}
+
+		const equipmentId = input.equipmentId?.trim();
+		if (!equipmentId) {
+			return {
+				ok: false,
+				message: "Equipment ID is required.",
+			};
+		}
+
+		if (!(input.photoFile instanceof File) || input.photoFile.size === 0) {
+			return {
+				ok: false,
+				message: "A valid image file is required.",
+			};
+		}
+
+		if (!input.photoFile.type.startsWith("image/")) {
+			return {
+				ok: false,
+				message: "Only image uploads are supported.",
+			};
+		}
+
+		if (input.photoFile.size > 5 * 1024 * 1024) {
+			return {
+				ok: false,
+				message: "Photo must be 5MB or smaller.",
+			};
+		}
+
+		const uploadResult = await uploadEquipmentPhotoToSupabase({
+			equipmentId,
+			file: input.photoFile,
+		});
+
+		console.log("[Equipment Action] Photo uploaded successfully", {
+			traceId,
+			equipmentId,
+			objectKey: uploadResult.objectKey,
+		});
+
+		return {
+			ok: true,
+			...uploadResult,
+		};
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown upload error.";
+		console.error("[Equipment Action] Photo upload failed", {
+			traceId,
+			error: message,
+		});
+
+		return {
+			ok: false,
+			message,
 		};
 	}
 }

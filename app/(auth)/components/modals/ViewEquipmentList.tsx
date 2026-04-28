@@ -58,6 +58,16 @@ export function ViewEquipmentList({ isOpen, onClose, equipment }: ViewEquipmentL
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
+              {equipment.photoUrl ? (
+                <div className="mb-4 overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                  <img
+                    src={equipment.photoUrl}
+                    alt={equipment.sku ?? equipment.qrCode}
+                    className="h-56 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-stone-700">QR Code</label>
