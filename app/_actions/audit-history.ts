@@ -5,7 +5,7 @@ import { getSession } from "@/lib/get-session";
 import {
   AuditSessionStatus,
   AuditItemStatus,
-} from "@/app/generated/prisma";
+} from "@/app/generated/prisma/enums";
 
 export type AuditSessionWithItems = {
   id: string;

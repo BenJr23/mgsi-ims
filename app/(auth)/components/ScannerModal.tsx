@@ -7,7 +7,7 @@ import {
   AlertCircleIcon,
   CameraIcon,
 } from "lucide-react";
-import { AuditItemStatus } from "@/app/generated/prisma";
+import { AuditItemStatus } from "@/app/generated/prisma/enums";
 
 type ScannerModalProps = {
   isOpen: boolean;
