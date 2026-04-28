@@ -12,6 +12,7 @@ interface EditEquipmentModelModalProps {
   isSubmitting: boolean;
   onSubmit: (data: {
     name: string;
+    modelCode: string;
     description: string;
     type: EquipmentType;
     price: string;
@@ -41,6 +42,7 @@ export function EditEquipmentModelModal({
 
     void onSubmit({
       name: formData.get('name') as string,
+      modelCode: formData.get('modelCode') as string,
       description: formData.get('description') as string,
       type: formData.get('type') as EquipmentType,
       price: formData.get('price') as string,
@@ -104,6 +106,21 @@ export function EditEquipmentModelModal({
                     name="name"
                     required
                     defaultValue={model.name}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="edit-model-code" className="block text-sm font-medium text-black">
+                    Model Code <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-model-code"
+                    name="modelCode"
+                    required
+                    defaultValue={model.modelCode ?? ''}
+                    placeholder="e.g. DESK-PRO-01"
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                   />
                 </div>

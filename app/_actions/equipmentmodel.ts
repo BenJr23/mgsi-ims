@@ -49,6 +49,7 @@ type DeleteEquipmentModelResult =
 export type EquipmentModelListItem = {
 	id: string;
 	name: string;
+	modelCode: string | null;
 	description: string;
 	type: EquipmentType;
 	price: string | null;
@@ -69,7 +70,7 @@ type FetchEquipmentModelsResult =
 			message: string;
 		};
 
-const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v3";
+const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v4";
 const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
@@ -163,6 +164,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			select: {
 				id: true,
 				name: true,
+				modelCode: true,
 				description: true,
 				type: true,
 				price: true,
@@ -245,6 +247,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 		const formattedModels: EquipmentModelListItem[] = models.map((model) => ({
 			id: model.id,
 			name: model.name,
+			modelCode: model.modelCode ?? null,
 			description: model.description ?? "",
 			type: model.type,
 			price: model.price ? model.price.toString() : null,
@@ -307,6 +310,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 
 export async function createEquipmentModelAction(input: {
 	name: string;
+	modelCode: string;
 	description: string;
 	type: EquipmentType;
 	price: string;
@@ -334,6 +338,7 @@ export async function createEquipmentModelAction(input: {
 		}
 
 		const normalizedName = input.name?.trim();
+		const normalizedModelCode = input.modelCode?.trim();
 		const normalizedDescription = input.description?.trim() || null;
 		const normalizedPrice = input.price?.trim();
 		const normalizedLifeExpectancy = input.lifeExpectancy?.trim();
@@ -348,6 +353,19 @@ export async function createEquipmentModelAction(input: {
 			return {
 				ok: false,
 				message: "Model name is required.",
+			};
+		}
+
+		if (!normalizedModelCode) {
+			await logEquipmentModelAudit({
+				action: "Create equipment model",
+				status: "FAILED",
+				message: "Create failed: Model code is required.",
+				userId: session.user.id,
+			});
+			return {
+				ok: false,
+				message: "Model code is required.",
 			};
 		}
 
@@ -405,6 +423,7 @@ export async function createEquipmentModelAction(input: {
 		const equipmentModel = await prisma.equipmentModel.create({
 			data: {
 				name: normalizedName,
+				modelCode: normalizedModelCode,
 				description: normalizedDescription,
 				type: input.type,
 				price: parsedPrice,
@@ -462,6 +481,7 @@ export async function createEquipmentModelAction(input: {
 export async function updateEquipmentModelAction(input: {
 	equipmentModelId: string;
 	name: string;
+	modelCode: string;
 	description: string;
 	type: EquipmentType;
 	price: string;
@@ -490,6 +510,7 @@ export async function updateEquipmentModelAction(input: {
 
 		const equipmentModelId = input.equipmentModelId?.trim();
 		const normalizedName = input.name?.trim();
+		const normalizedModelCode = input.modelCode?.trim();
 		const normalizedDescription = input.description?.trim() || null;
 		const normalizedPrice = input.price?.trim();
 		const normalizedLifeExpectancy = input.lifeExpectancy?.trim();
@@ -517,6 +538,19 @@ export async function updateEquipmentModelAction(input: {
 			return {
 				ok: false,
 				message: "Model name is required.",
+			};
+		}
+
+		if (!normalizedModelCode) {
+			await logEquipmentModelAudit({
+				action: "Update equipment model",
+				status: "FAILED",
+				message: "Update failed: Model code is required.",
+				userId: session.user.id,
+			});
+			return {
+				ok: false,
+				message: "Model code is required.",
 			};
 		}
 
@@ -601,6 +635,7 @@ export async function updateEquipmentModelAction(input: {
 			},
 			data: {
 				name: normalizedName,
+				modelCode: normalizedModelCode,
 				description: normalizedDescription,
 				type: input.type,
 				price: parsedPrice,

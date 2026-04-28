@@ -161,19 +161,20 @@ model Area {
 }
 
 model EquipmentModel {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  type        EquipmentType
-  price       Decimal?      @db.Decimal(10, 2)
+  id             String        @id @default(uuid())
+  name           String
+  modelCode      String?
+  description    String?
+  type           EquipmentType
+  price          Decimal?      @db.Decimal(10, 2)
   lifeExpectancy Int?
-  photoUrl    String?
-  createdById String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-  createdBy   User          @relation("EquipmentModelCreatedBy", fields: [createdById], references: [id])
-  equipment   Equipment[]
+  photoUrl       String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  createdBy      User          @relation("EquipmentModelCreatedBy", fields: [createdById], references: [id])
+  equipment      Equipment[]
 
   @@index([createdById])
   @@index([type])
