@@ -7,7 +7,8 @@ import {
   AlertCircleIcon,
   CameraIcon,
 } from "lucide-react";
-import { AuditItemStatus } from "@/app/generated/prisma/enums";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import type { AuditItemStatus } from "@/app/generated/prisma/enums";
 
 type ScannerModalProps = {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export function ScannerModal({
   const [notes, setNotes] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -70,37 +72,45 @@ export function ScannerModal({
 
   // Scan QR code from video feed
   useEffect(() => {
-    if (!isOpen || !videoRef.current || scannedQR || !canvasRef.current) return;
+    if (!isOpen || !videoRef.current || scannedQR) return;
 
-    const scanInterval = setInterval(() => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
+    const codeReader = new BrowserMultiFormatReader();
+    codeReaderRef.current = codeReader;
 
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+    let isActive = true;
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
+    const startScanning = async () => {
+      try {
+        await codeReader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          (result, error) => {
+            if (!isActive) return;
 
-        // Simple QR code detection - look for QR patterns
-        // In a real app, you'd use a library like jsQR
-        const imageData = ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
+            if (result) {
+              setScannedQR(result.getText());
+              codeReader.reset();
+              return;
+            }
+
+            if (error && error.name !== "NotFoundException") {
+              console.debug("QR scan error:", error);
+            }
+          }
         );
-
-        // For demo purposes, we'll simulate QR detection
-        // In production, integrate jsQR library:
-        // const code = jsQR(imageData.data, imageData.width, imageData.height);
-        // if (code) { setScannedQR(code.data); }
+      } catch (error) {
+        console.error("QR scanner error:", error);
+        setCameraError("Unable to start QR scanner. Please try again.");
       }
-    }, 100);
+    };
 
-    return () => clearInterval(scanInterval);
+    startScanning();
+
+    return () => {
+      isActive = false;
+      codeReader.reset();
+      codeReaderRef.current = null;
+    };
   }, [isOpen, scannedQR]);
 
   const handleManualScan = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +136,7 @@ export function ScannerModal({
   };
 
   const resetModal = () => {
+    codeReaderRef.current?.reset();
     setScannedQR(null);
     setStatus("PASS");
     setNotes("");
@@ -173,7 +184,6 @@ export function ScannerModal({
                     playsInline
                     className="w-full h-full object-cover"
                   />
-                  <canvas ref={canvasRef} className="hidden" />
                   <div className="absolute inset-0 border-2 border-yellow-400 m-12 rounded-lg pointer-events-none" />
                   <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 px-3 py-2 rounded-lg">
                     <CameraIcon className="w-4 h-4 text-white" />
@@ -198,14 +208,7 @@ export function ScannerModal({
                 />
               </div>
 
-              {/* Instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900">
-                  <span className="font-semibold">Instructions:</span> Position
-                  the QR code within the frame or use the input field above to
-                  manually scan.
-                </p>
-              </div>
+              <div className="h-2" />
             </>
           ) : (
             <>
