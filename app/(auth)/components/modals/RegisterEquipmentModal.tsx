@@ -11,6 +11,8 @@ interface RegisterEquipmentModalProps {
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
+    purchaseDate: string | null;
+    photoFile: File | null;
     quantity: number;
   }) => Promise<boolean>;
   isSubmitting?: boolean;
@@ -194,6 +196,11 @@ export function RegisterEquipmentModal({
       equipmentModelId: selectedModelId,
       status: formData.get('status') as EquipmentStatus,
       areaId: selectedAreaId,
+      purchaseDate: String(formData.get('purchaseDate') ?? '').trim() || null,
+      photoFile: (() => {
+        const file = formData.get('photoFile');
+        return file instanceof File && file.size > 0 ? file : null;
+      })(),
       quantity: normalizedQuantity,
     });
 
@@ -343,6 +350,35 @@ export function RegisterEquipmentModal({
                       disabled={isSubmitting || areas.length === 0}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="equip-purchase-date" className="block text-sm font-medium text-black">
+                    Purchase Date
+                  </label>
+                  <input
+                    id="equip-purchase-date"
+                    name="purchaseDate"
+                    type="date"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white"
+                  />
+                  <p className="text-xs text-stone-500">Optional. Leave blank if the purchase date is unknown.</p>
+
+                <div className="space-y-2">
+                  <label htmlFor="equip-photo" className="block text-sm font-medium text-black">
+                    Equipment Photo
+                  </label>
+                  <input
+                    id="equip-photo"
+                    name="photoFile"
+                    type="file"
+                    accept="image/*"
+                    disabled={isSubmitting}
+                    className="block w-full text-sm text-stone-700 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-amber-900 hover:file:bg-amber-200"
+                  />
+                  <p className="text-xs text-stone-500">Optional. JPG, PNG, or WebP works best.</p>
+                </div>
                 </div>
 
                 <div className="space-y-2">
