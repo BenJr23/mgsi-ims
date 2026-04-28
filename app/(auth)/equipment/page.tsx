@@ -556,6 +556,12 @@ export default function EquipmentPage() {
 
     setError(null);
 
+    const printWindow = window.open('', '', 'width=1100,height=800');
+    if (!printWindow) {
+      setError('Please allow pop-ups to print QR codes.');
+      return;
+    }
+
     let qrDataUrl = '';
     try {
       const QRCodeLib = await import('qrcode');
@@ -565,13 +571,8 @@ export default function EquipmentPage() {
         errorCorrectionLevel: 'H',
       });
     } catch {
+      printWindow.close();
       setError('Unable to generate QR code image for printing right now.');
-      return;
-    }
-
-    const printWindow = window.open('', '', 'width=1100,height=800');
-    if (!printWindow) {
-      setError('Please allow pop-ups to print QR codes.');
       return;
     }
 
@@ -721,6 +722,12 @@ export default function EquipmentPage() {
 
     setError(null);
 
+    const printWindow = window.open('', '', 'width=1200,height=900');
+    if (!printWindow) {
+      setError('Please allow pop-ups to print filtered equipment QR labels.');
+      return;
+    }
+
     let itemsWithQr: Array<EquipmentListItem & { qrDataUrl: string }> = [];
     try {
       const QRCodeLib = await import('qrcode');
@@ -735,13 +742,8 @@ export default function EquipmentPage() {
         })),
       );
     } catch {
+      printWindow.close();
       setError('Unable to generate bulk QR code images for printing right now.');
-      return;
-    }
-
-    const printWindow = window.open('', '', 'width=1200,height=900');
-    if (!printWindow) {
-      setError('Please allow pop-ups to print filtered equipment QR labels.');
       return;
     }
 
