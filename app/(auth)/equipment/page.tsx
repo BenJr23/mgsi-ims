@@ -360,6 +360,7 @@ export default function EquipmentPage() {
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
+    purchaseDate: string | null;
     quantity: number;
   }) => {
     setIsSubmittingEquipment(true);
@@ -480,6 +481,7 @@ export default function EquipmentPage() {
     equipmentId: string;
     status: EquipmentStatus;
     areaId: string;
+    purchaseDate: string | null;
   }) => {
     setIsUpdatingEquipment(true);
     setError(null);

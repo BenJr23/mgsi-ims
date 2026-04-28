@@ -11,6 +11,7 @@ interface RegisterEquipmentModalProps {
     equipmentModelId: string;
     status: EquipmentStatus;
     areaId: string;
+    purchaseDate: string | null;
     quantity: number;
   }) => Promise<boolean>;
   isSubmitting?: boolean;
@@ -194,6 +195,7 @@ export function RegisterEquipmentModal({
       equipmentModelId: selectedModelId,
       status: formData.get('status') as EquipmentStatus,
       areaId: selectedAreaId,
+      purchaseDate: String(formData.get('purchaseDate') ?? '').trim() || null,
       quantity: normalizedQuantity,
     });
 
@@ -343,6 +345,20 @@ export function RegisterEquipmentModal({
                       disabled={isSubmitting || areas.length === 0}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="equip-purchase-date" className="block text-sm font-medium text-black">
+                    Purchase Date
+                  </label>
+                  <input
+                    id="equip-purchase-date"
+                    name="purchaseDate"
+                    type="date"
+                    disabled={isSubmitting}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white"
+                  />
+                  <p className="text-xs text-stone-500">Optional. Leave blank if the purchase date is unknown.</p>
                 </div>
 
                 <div className="space-y-2">

@@ -11,6 +11,7 @@ interface EditEquipmentModalProps {
         equipmentId: string;
         status: EquipmentStatus;
         areaId: string;
+        purchaseDate: string | null;
     }) => Promise<boolean>;
     isSubmitting?: boolean;
     equipment: {
@@ -18,6 +19,7 @@ interface EditEquipmentModalProps {
         sku: string | null;
         status: EquipmentStatus;
         areaId: string;
+        purchaseDate: string | null;
     } | null;
     areas: {
         id: string;
@@ -54,6 +56,7 @@ export function EditEquipmentModal({
         const formData = new FormData(event.currentTarget);
         const status = String(formData.get('status') ?? 'AVAILABLE') as EquipmentStatus;
         const areaId = String(formData.get('areaId') ?? '').trim();
+        const purchaseDate = String(formData.get('purchaseDate') ?? '').trim() || null;
 
         if (!areaId) {
             return;
@@ -63,6 +66,7 @@ export function EditEquipmentModal({
             equipmentId: equipment.id,
             status,
             areaId,
+            purchaseDate,
         });
 
         if (success) {
@@ -155,6 +159,21 @@ export function EditEquipmentModal({
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="edit-purchase-date" className="block text-sm font-medium text-black">
+                                    Purchase Date
+                                </label>
+                                <input
+                                    id="edit-purchase-date"
+                                    name="purchaseDate"
+                                    type="date"
+                                    defaultValue={equipment?.purchaseDate ?? ''}
+                                    disabled={isSubmitting}
+                                    className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white"
+                                />
+                                <p className="text-xs text-stone-500">Optional. Update the purchase date if needed.</p>
                             </div>
 
                             <div className="flex items-center justify-end gap-3 pt-1">

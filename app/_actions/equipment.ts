@@ -55,6 +55,7 @@ export type EquipmentListItem = {
 	sku: string | null;
 	equipmentModelId: string;
 	areaId: string;
+	purchaseDate: string | null;
 	modelName: string;
 	modelType: string;
 	status: EquipmentStatus;
@@ -74,7 +75,7 @@ type FetchEquipmentResult =
 			message: string;
 		};
 
-const EQUIPMENT_CACHE_KEY = "equipment:all:v1";
+const EQUIPMENT_CACHE_KEY = "equipment:all:v2";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
 const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
 const EQUIPMENT_CACHE_TTL_SECONDS = 300;
@@ -132,6 +133,22 @@ function generateEquipmentSku(): string {
 
 function buildEquipmentQrCodeUrl(sku: string): string {
 	return `${getAppBaseUrl()}${EQUIPMENT_ROUTE_PREFIX}/${encodeURIComponent(sku)}`;
+}
+
+function parsePurchaseDateInput(value: string | null | undefined): Date | null {
+	const trimmed = value?.trim();
+
+	if (!trimmed) {
+		return null;
+	}
+
+	const parsedDate = new Date(trimmed);
+
+	if (Number.isNaN(parsedDate.getTime())) {
+		throw new Error("Invalid purchase date.");
+	}
+
+	return parsedDate;
 }
 
 type RedisCommandResponse<T> = {
@@ -313,6 +330,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 				sku: true,
 				equipmentModelId: true,
 				status: true,
+				purchaseDate: true,
 				createdAt: true,
 				equipmentModel: {
 					select: {
@@ -344,6 +362,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			sku: item.sku,
 			equipmentModelId: item.equipmentModelId,
 			areaId: item.areaId,
+			purchaseDate: item.purchaseDate ? item.purchaseDate.toISOString().slice(0, 10) : null,
 			modelName: item.equipmentModel.name,
 			modelType: item.equipmentModel.type,
 			status: item.status,
@@ -440,6 +459,7 @@ export async function createEquipmentAction(input: {
 	equipmentModelId: string;
 	status: EquipmentStatus;
 	areaId: string; // areaId is now a plain string
+	purchaseDate: string | null;
 	quantity: number;
 }): Promise<CreateEquipmentResult> {
 	const traceId = `equipment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -469,6 +489,7 @@ export async function createEquipmentAction(input: {
 		const normalizedEquipmentModelId = input.equipmentModelId?.trim();
 		const normalizedAreaId = input.areaId?.trim();
 		const normalizedStatus = input.status?.trim();
+		const normalizedPurchaseDate = parsePurchaseDateInput(input.purchaseDate);
 		const requestedQuantity = Number.isFinite(input.quantity)
 			? Math.trunc(input.quantity)
 			: 0;
@@ -571,6 +592,7 @@ export async function createEquipmentAction(input: {
 						equipmentModelId: normalizedEquipmentModelId,
 						status: normalizedStatus,
 						areaId: normalizedAreaId,
+						purchaseDate: normalizedPurchaseDate,
 						createdById: session.user.id,
 					},
 					select: {
@@ -663,6 +685,7 @@ export async function updateEquipmentAction(input: {
 	equipmentId: string;
 	status: EquipmentStatus;
 	areaId: string;
+	purchaseDate: string | null;
 }): Promise<UpdateEquipmentResult> {
 	const traceId = `equipment_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	let auditUserId: string | null = null;
@@ -689,6 +712,7 @@ export async function updateEquipmentAction(input: {
 
 		const equipmentId = input.equipmentId?.trim();
 		const areaId = input.areaId?.trim();
+		const normalizedPurchaseDate = parsePurchaseDateInput(input.purchaseDate);
 
 		if (!equipmentId) {
 			await logEquipmentAudit({
@@ -775,6 +799,7 @@ export async function updateEquipmentAction(input: {
 				data: {
 					status: input.status,
 					areaId,
+					purchaseDate: normalizedPurchaseDate,
 				},
 				select: {
 					id: true,
