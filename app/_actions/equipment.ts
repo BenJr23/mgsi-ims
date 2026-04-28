@@ -144,11 +144,13 @@ async function generateDeterministicSkuWithPrefix(tx: any, prefix: string): Prom
 	});
 
 	let maxSeq = 0;
+	const expectedPrefix = `${prefix}-`;
 	for (const e of existing) {
 		if (!e.sku) continue;
-		const m = e.sku.match(new RegExp(`${prefix}-(\\d{4})$`));
-		if (m && m[1]) {
-			const v = parseInt(m[1], 10);
+		if (!e.sku.startsWith(expectedPrefix)) continue;
+		const suffix = e.sku.slice(expectedPrefix.length);
+		if (/^\d{4}$/.test(suffix)) {
+			const v = parseInt(suffix, 10);
 			if (!Number.isNaN(v) && v > maxSeq) maxSeq = v;
 		}
 	}
@@ -614,7 +616,7 @@ export async function createEquipmentAction(input: {
 				resolvedAreaCode = (localArea.roomCode ?? localArea.roomName ?? normalizedAreaId)
 					.toString()
 					.trim()
-					.toUpperCase();
+					;
 			}
 		} catch {
 			// ignore lookup errors and fall back to branches API
@@ -629,7 +631,7 @@ export async function createEquipmentAction(input: {
 						resolvedAreaCode = (found.code ?? found.name ?? normalizedAreaId)
 							.toString()
 							.trim()
-							.toUpperCase();
+							;
 						break;
 					}
 				}
@@ -637,7 +639,7 @@ export async function createEquipmentAction(input: {
 		}
 
 		// Fallback to raw areaId if nothing else
-		if (!resolvedAreaCode) resolvedAreaCode = normalizedAreaId.toUpperCase();
+		if (!resolvedAreaCode) resolvedAreaCode = normalizedAreaId.trim();
 
 		const modelFromCache = equipmentModelsResult.models.find((m) => m.id === normalizedEquipmentModelId);
 		const resolvedModelCode = (modelFromCache?.modelCode ?? modelFromCache?.name ?? normalizedEquipmentModelId)
@@ -646,7 +648,7 @@ export async function createEquipmentAction(input: {
 			.toUpperCase();
 
 		const clean = (s: string) => s.replace(/[^A-Z0-9]/g, "");
-		const prefix = `${clean(resolvedAreaCode)}-${clean(resolvedModelCode)}`;
+		const prefix = `${resolvedAreaCode}-${clean(resolvedModelCode)}`;
 
 		const MAX_ATTEMPTS = 5;
 		let createdEquipment: Array<{ id: string; sku: string | null; qrCode: string }> = [];
