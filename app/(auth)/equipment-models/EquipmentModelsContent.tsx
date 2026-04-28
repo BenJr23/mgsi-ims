@@ -11,6 +11,7 @@ import {
     updateEquipmentModelAction,
     deleteEquipmentModelAction,
     fetchEquipmentModelsAction,
+    uploadEquipmentModelPhotoAction,
     type EquipmentModelListItem,
 } from '@/app/_actions/equipmentmodel';
 import {
@@ -124,16 +125,30 @@ export default function EquipmentModelsContent() {
         description: string;
         type: EquipmentType;
         price: string;
+        photoFile: File | null;
     }) => {
         setIsSubmittingModel(true);
         setError(null);
 
         try {
-            const result = await createEquipmentModelAction(data);
+            const { photoFile, ...modelData } = data;
+            const result = await createEquipmentModelAction(modelData);
 
             if (!result.ok) {
                 setError(result.message);
                 return;
+            }
+
+            if (photoFile) {
+                const uploadResult = await uploadEquipmentModelPhotoAction({
+                    equipmentModelId: result.equipmentModelId,
+                    photoFile,
+                });
+
+                if (!uploadResult.ok) {
+                    setError(`Equipment model created, but photo upload failed: ${uploadResult.message}`);
+                    return;
+                }
             }
 
             await loadEquipmentModels();
@@ -244,6 +259,7 @@ export default function EquipmentModelsContent() {
         description: string;
         type: EquipmentType;
         price: string;
+        photoFile: File | null;
     }) => {
         if (!editModel) {
             return;
@@ -253,14 +269,27 @@ export default function EquipmentModelsContent() {
         setError(null);
 
         try {
+            const { photoFile, ...modelData } = data;
             const result = await updateEquipmentModelAction({
                 equipmentModelId: editModel.id,
-                ...data,
+                ...modelData,
             });
 
             if (!result.ok) {
                 setError(result.message);
                 return;
+            }
+
+            if (photoFile) {
+                const uploadResult = await uploadEquipmentModelPhotoAction({
+                    equipmentModelId: editModel.id,
+                    photoFile,
+                });
+
+                if (!uploadResult.ok) {
+                    setError(`Equipment model updated, but photo upload failed: ${uploadResult.message}`);
+                    return;
+                }
             }
 
             await loadEquipmentModels();

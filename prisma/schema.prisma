@@ -165,6 +165,7 @@ model EquipmentModel {
   description String?
   type        EquipmentType
   price       Decimal?      @db.Decimal(10, 2)
+  photoUrl    String?
   createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -184,7 +185,6 @@ model Equipment {
   equipmentModelId String
   status           EquipmentStatus @default(AVAILABLE)
   areaId           String
-  photoUrl         String?
   purchaseDate     DateTime?
   createdById      String
   createdAt        DateTime        @default(now())

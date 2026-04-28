@@ -61,11 +61,11 @@ function sanitizeSegment(value: string): string {
 		.replace(/^-|-$/g, '');
 }
 
-export function buildEquipmentPhotoObjectKey(equipmentId: string, file: File): string {
-	const safeEquipmentId = sanitizeSegment(equipmentId) || equipmentId;
+function buildPhotoObjectKey(folder: string, entityId: string, file: File): string {
+	const safeEntityId = sanitizeSegment(entityId) || entityId;
 	const extension = getFileExtension(file);
 	const safeName = sanitizeSegment(file.name.replace(/\.[^.]+$/, '')) || 'photo';
-	return `equipment/${safeEquipmentId}/${randomUUID()}-${safeName}${extension}`;
+	return `${folder}/${safeEntityId}/${randomUUID()}-${safeName}${extension}`;
 }
 
 export function buildSupabasePublicUrl(objectKey: string): string {
@@ -75,13 +75,14 @@ export function buildSupabasePublicUrl(objectKey: string): string {
 	return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(bucketName)}/${encodedObjectKey}`;
 }
 
-export async function uploadEquipmentPhotoToSupabase(input: {
-	equipmentId: string;
+async function uploadPhotoToSupabase(input: {
+	folder: string;
+	entityId: string;
 	file: File;
 }): Promise<{ objectKey: string; publicUrl: string }> {
 	const apiKey = getSupabaseApiKey();
 	const bucketName = getSupabaseBucketName();
-	const objectKey = buildEquipmentPhotoObjectKey(input.equipmentId, input.file);
+	const objectKey = buildPhotoObjectKey(input.folder, input.entityId, input.file);
 	const uploadUrl = `${getSupabaseProjectUrl()}/storage/v1/object/${encodeURIComponent(bucketName)}/${objectKey
 		.split('/')
 		.map(encodeURIComponent)
@@ -107,4 +108,15 @@ export async function uploadEquipmentPhotoToSupabase(input: {
 		objectKey,
 		publicUrl: buildSupabasePublicUrl(objectKey),
 	};
+}
+
+export async function uploadEquipmentModelPhotoToSupabase(input: {
+	equipmentModelId: string;
+	file: File;
+}): Promise<{ objectKey: string; publicUrl: string }> {
+	return uploadPhotoToSupabase({
+		folder: 'equipment-models',
+		entityId: input.equipmentModelId,
+		file: input.file,
+	});
 }

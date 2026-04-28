@@ -12,7 +12,6 @@ interface EditEquipmentModalProps {
         status: EquipmentStatus;
         areaId: string;
         purchaseDate: string | null;
-        photoFile: File | null;
     }) => Promise<boolean>;
     isSubmitting?: boolean;
     equipment: {
@@ -21,7 +20,6 @@ interface EditEquipmentModalProps {
         status: EquipmentStatus;
         areaId: string;
         purchaseDate: string | null;
-        photoUrl?: string | null;
     } | null;
     areas: {
         id: string;
@@ -59,10 +57,6 @@ export function EditEquipmentModal({
         const status = String(formData.get('status') ?? 'AVAILABLE') as EquipmentStatus;
         const areaId = String(formData.get('areaId') ?? '').trim();
         const purchaseDate = String(formData.get('purchaseDate') ?? '').trim() || null;
-        const photoFile = (() => {
-            const file = formData.get('photoFile');
-            return file instanceof File && file.size > 0 ? file : null;
-        })();
 
         if (!areaId) {
             return;
@@ -73,7 +67,6 @@ export function EditEquipmentModal({
             status,
             areaId,
             purchaseDate,
-            photoFile,
         });
 
         if (success) {
@@ -115,29 +108,6 @@ export function EditEquipmentModal({
                                 </p>
                             </div>
 
-                            <div className="space-y-2">
-                                <label htmlFor="edit-photo" className="block text-sm font-medium text-black">
-                                    Replace Photo
-                                </label>
-                                {equipment?.photoUrl ? (
-                                    <div className="rounded-lg border border-stone-200 bg-stone-50 p-3">
-                                        <img
-                                            src={equipment.photoUrl}
-                                            alt={equipment.sku ?? 'equipment photo'}
-                                            className="h-32 w-full rounded-md object-cover"
-                                        />
-                                    </div>
-                                ) : null}
-                                <input
-                                    id="edit-photo"
-                                    name="photoFile"
-                                    type="file"
-                                    accept="image/*"
-                                    disabled={isSubmitting}
-                                    className="block w-full text-sm text-stone-700 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-amber-900 hover:file:bg-amber-200"
-                                />
-                                <p className="text-xs text-stone-500">Optional. Choose a new photo to replace the current one.</p>
-                            </div>
                             <button
                                 type="button"
                                 onClick={closeModal}

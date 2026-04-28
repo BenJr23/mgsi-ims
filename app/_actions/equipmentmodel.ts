@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
+import { uploadEquipmentModelPhotoToSupabase } from "@/lib/supabase-storage";
 import { headers } from "next/headers";
 
 type EquipmentType =
@@ -51,6 +52,7 @@ export type EquipmentModelListItem = {
 	description: string;
 	type: EquipmentType;
 	price: string | null;
+	photoUrl: string | null;
 	createdBy: string;
 	createdAt: string;
 	unitCount: number;
@@ -66,7 +68,7 @@ type FetchEquipmentModelsResult =
 			message: string;
 		};
 
-const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v1";
+const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v2";
 const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
@@ -197,6 +199,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 				description: true,
 				type: true,
 				price: true,
+				photoUrl: true,
 				createdAt: true,
 				createdBy: {
 					select: {
@@ -223,6 +226,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			description: model.description ?? "",
 			type: model.type,
 			price: model.price ? model.price.toString() : null,
+			photoUrl: model.photoUrl,
 			createdBy: model.createdBy.name,
 			createdAt: new Intl.DateTimeFormat("en-US", {
 				month: "short",
@@ -711,6 +715,107 @@ export async function deleteEquipmentModelAction(input: {
 		return {
 			ok: false,
 			message: `Unable to delete equipment model: ${errorMessage}`,
+		};
+	}
+}
+
+export async function uploadEquipmentModelPhotoAction(input: {
+	equipmentModelId: string;
+	photoFile: File;
+}): Promise<
+	| {
+		ok: true;
+		equipmentModelId: string;
+		photoUrl: string;
+	}
+	| {
+		ok: false;
+		message: string;
+	}
+> {
+	const traceId = `equipment_model_photo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+	try {
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!session?.user) {
+			return {
+				ok: false,
+				message: "You must be logged in to upload a photo.",
+			};
+		}
+
+		const equipmentModelId = input.equipmentModelId?.trim();
+		if (!equipmentModelId) {
+			return {
+				ok: false,
+				message: "Equipment model ID is required.",
+			};
+		}
+
+		if (!(input.photoFile instanceof File) || input.photoFile.size === 0) {
+			return {
+				ok: false,
+				message: "A valid image file is required.",
+			};
+		}
+
+		if (!input.photoFile.type.startsWith("image/")) {
+			return {
+				ok: false,
+				message: "Only image uploads are supported.",
+			};
+		}
+
+		if (input.photoFile.size > 5 * 1024 * 1024) {
+			return {
+				ok: false,
+				message: "Photo must be 5MB or smaller.",
+			};
+		}
+
+		const uploadResult = await uploadEquipmentModelPhotoToSupabase({
+			equipmentModelId,
+			file: input.photoFile,
+		});
+
+		await prisma.equipmentModel.update({
+			where: {
+				id: equipmentModelId,
+			},
+			data: {
+				photoUrl: uploadResult.publicUrl,
+			},
+			select: {
+				id: true,
+			},
+		});
+
+		await invalidateEquipmentModelsCache();
+
+		console.log("[EquipmentModel Action] Photo uploaded successfully", {
+			traceId,
+			equipmentModelId,
+			objectKey: uploadResult.objectKey,
+		});
+
+		return {
+			ok: true,
+			equipmentModelId,
+			photoUrl: uploadResult.publicUrl,
+		};
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown upload error.";
+		console.error("[EquipmentModel Action] Photo upload failed", {
+			traceId,
+			error: message,
+		});
+
+		return {
+			ok: false,
+			message,
 		};
 	}
 }

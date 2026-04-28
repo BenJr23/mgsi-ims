@@ -15,6 +15,7 @@ interface AddModelModalProps {
     description: string;
     type: EquipmentType;
     price: string;
+    photoFile: File | null;
   }) => Promise<void> | void;
 }
 const EQUIPMENT_TYPES: {
@@ -54,7 +55,11 @@ export function AddModelModal({
       name: formData.get('name') as string,
       description: formData.get('description') as string,
       type: formData.get('type') as EquipmentType,
-      price: formData.get('price') as string
+      price: formData.get('price') as string,
+      photoFile: (() => {
+        const file = formData.get('photoFile');
+        return file instanceof File && file.size > 0 ? file : null;
+      })(),
     });
   };
   return (
@@ -189,6 +194,22 @@ export function AddModelModal({
                       </option>
                     )}
                   </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="model-photo" className="block text-sm font-medium text-black">
+                    Photo
+                  </label>
+                  <input
+                    type="file"
+                    id="model-photo"
+                    name="photoFile"
+                    accept="image/*"
+                    className="block w-full text-sm text-stone-700 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-amber-900 hover:file:bg-amber-200"
+                  />
+                  <p className="text-xs text-gray-600">
+                    Optional. This photo will be shown for the equipment model.
+                  </p>
                 </div>
 
                 {/* Price */}

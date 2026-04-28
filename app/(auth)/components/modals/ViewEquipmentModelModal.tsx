@@ -59,6 +59,16 @@ export function ViewEquipmentModelModal({
             </div>
 
             <div className="p-6 space-y-5">
+              {model.photoUrl ? (
+                <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                  <img
+                    src={model.photoUrl}
+                    alt={model.name}
+                    className="h-56 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-stone-700">Model Name</label>
                 <input

@@ -10,7 +10,6 @@ import {
   createEquipmentAction,
   updateEquipmentAction,
   deleteEquipmentAction,
-  uploadEquipmentPhotoAction,
   fetchEquipmentAction,
   type EquipmentListItem,
 } from '@/app/_actions/equipment';
@@ -101,17 +100,6 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
   } catch {
     return qrCode;
   }
-}
-
-async function uploadEquipmentPhoto(equipmentId: string, photoFile: File) {
-  const formData = new FormData();
-  formData.append('equipmentId', equipmentId);
-  formData.append('photoFile', photoFile);
-
-  return uploadEquipmentPhotoAction({
-    equipmentId,
-    photoFile,
-  });
 }
 
 export default function EquipmentPage() {
@@ -373,44 +361,17 @@ export default function EquipmentPage() {
     status: EquipmentStatus;
     areaId: string;
     purchaseDate: string | null;
-    photoFile: File | null;
     quantity: number;
   }) => {
     setIsSubmittingEquipment(true);
     setError(null);
 
     try {
-      if (data.photoFile && data.quantity > 1) {
-        setError('Please register one equipment item at a time when uploading a photo.');
-        return false;
-      }
-
       const result = await createEquipmentAction(data);
 
       if (!result.ok) {
         setError(result.message);
         return false;
-      }
-
-      if (data.photoFile) {
-        const uploadResult = await uploadEquipmentPhoto(result.equipmentId, data.photoFile);
-
-        if (uploadResult.ok) {
-          const photoUpdateResult = await updateEquipmentAction({
-            equipmentId: result.equipmentId,
-            status: data.status,
-            areaId: data.areaId,
-            purchaseDate: data.purchaseDate,
-            photoUrl: uploadResult.publicUrl,
-          });
-
-          if (!photoUpdateResult.ok) {
-            setError(photoUpdateResult.message);
-            return false;
-          }
-        } else {
-          setError(`Equipment created, but photo upload failed: ${uploadResult.message}`);
-        }
       }
 
       await loadEquipment();
@@ -521,7 +482,6 @@ export default function EquipmentPage() {
     status: EquipmentStatus;
     areaId: string;
     purchaseDate: string | null;
-    photoFile: File | null;
   }) => {
     setIsUpdatingEquipment(true);
     setError(null);
@@ -532,27 +492,6 @@ export default function EquipmentPage() {
       if (!result.ok) {
         setError(result.message);
         return false;
-      }
-
-      if (data.photoFile) {
-        const uploadResult = await uploadEquipmentPhoto(data.equipmentId, data.photoFile);
-
-        if (uploadResult.ok) {
-          const photoUpdateResult = await updateEquipmentAction({
-            equipmentId: data.equipmentId,
-            status: data.status,
-            areaId: data.areaId,
-            purchaseDate: data.purchaseDate,
-            photoUrl: uploadResult.publicUrl,
-          });
-
-          if (!photoUpdateResult.ok) {
-            setError(photoUpdateResult.message);
-            return false;
-          }
-        } else {
-          setError(`Equipment updated, but photo upload failed: ${uploadResult.message}`);
-        }
       }
 
       await loadEquipment();
