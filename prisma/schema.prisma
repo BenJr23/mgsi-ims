@@ -180,7 +180,7 @@ model EquipmentModel {
 model Equipment {
   id               String          @id @default(uuid())
   qrCode           String          @unique
-  sku              String?
+  sku              String?          @unique
   equipmentModelId String
   status           EquipmentStatus @default(AVAILABLE)
   areaId           String
