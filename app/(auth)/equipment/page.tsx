@@ -580,11 +580,10 @@ export default function EquipmentPage() {
       labelsHtml += `
         <div class="label">
           <img class="logo" src="${logoUrl}" alt="Great Work logo" />
-          <div class="meta"><strong>${item.modelName}</strong></div>
+          <div class="meta"><strong>${item.areaName}</strong></div>
           <div class="qr-code">
             <img class="qr-image" src="${qrDataUrl}" alt="QR code" />
           </div>
-          <div class="qr-value">${item.qrCode}</div>
         </div>
       `;
     }
@@ -751,12 +750,10 @@ export default function EquipmentPage() {
         (item) => `
         <div class="label">
           <img class="logo" src="${logoUrl}" alt="Great Work logo" />
-          <div class="meta"><strong>${item.modelName}</strong></div>
-          <div class="sub">${item.sku ?? 'No SKU'}</div>
+          <div class="meta"><strong>${item.areaName}</strong></div>
           <div class="qr-code">
             <img class="qr-image" src="${item.qrDataUrl}" alt="QR code" />
           </div>
-          <div class="qr-value">${item.qrCode}</div>
         </div>
       `,
       )
