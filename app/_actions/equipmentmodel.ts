@@ -52,6 +52,7 @@ export type EquipmentModelListItem = {
 	description: string;
 	type: EquipmentType;
 	price: string | null;
+	lifeExpectancy: number | null;
 	photoUrl: string | null;
 	createdBy: string;
 	createdAt: string;
@@ -69,6 +70,7 @@ type FetchEquipmentModelsResult =
 		};
 
 const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v2";
+const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v3";
 const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
 
 type RedisCommandResponse<T> = {
@@ -165,6 +167,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 				description: true,
 				type: true,
 				price: true,
+				lifeExpectancy: true,
 				...(includePhotoUrl ? { photoUrl: true } : {}),
 				createdAt: true,
 				createdBy: {
@@ -246,6 +249,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			description: model.description ?? "",
 			type: model.type,
 			price: model.price ? model.price.toString() : null,
+			lifeExpectancy: model.lifeExpectancy ?? null,
 			photoUrl: "photoUrl" in model ? (model.photoUrl ?? null) : null,
 			createdBy: model.createdBy.name,
 			createdAt: new Intl.DateTimeFormat("en-US", {
@@ -307,6 +311,7 @@ export async function createEquipmentModelAction(input: {
 	description: string;
 	type: EquipmentType;
 	price: string;
+	lifeExpectancy: string;
 }): Promise<CreateEquipmentModelResult> {
 	const traceId = `equipment_model_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -332,6 +337,7 @@ export async function createEquipmentModelAction(input: {
 		const normalizedName = input.name?.trim();
 		const normalizedDescription = input.description?.trim() || null;
 		const normalizedPrice = input.price?.trim();
+		const normalizedLifeExpectancy = input.lifeExpectancy?.trim();
 
 		if (!normalizedName) {
 			await logEquipmentModelAudit({
@@ -375,6 +381,25 @@ export async function createEquipmentModelAction(input: {
 				};
 			}
 		}
+		if (normalizedLifeExpectancy) {
+			parsedLifeExpectancy = Number(normalizedLifeExpectancy);
+			if (
+				Number.isNaN(parsedLifeExpectancy) ||
+				parsedLifeExpectancy < 0 ||
+				!Number.isInteger(parsedLifeExpectancy)
+			) {
+				await logEquipmentModelAudit({
+					action: "Create equipment model",
+					status: "FAILED",
+					message: "Create failed: Invalid life expectancy provided.",
+					userId: session.user.id,
+				});
+				return {
+					ok: false,
+					message: "Life expectancy must be a valid non-negative whole number.",
+				};
+			}
+		}
 
 		const equipmentModel = await prisma.equipmentModel.create({
 			data: {
@@ -382,6 +407,7 @@ export async function createEquipmentModelAction(input: {
 				description: normalizedDescription,
 				type: input.type,
 				price: parsedPrice,
+				lifeExpectancy: parsedLifeExpectancy,
 				createdById: session.user.id,
 			},
 			select: {
@@ -438,6 +464,7 @@ export async function updateEquipmentModelAction(input: {
 	description: string;
 	type: EquipmentType;
 	price: string;
+	lifeExpectancy: string;
 }): Promise<UpdateEquipmentModelResult> {
 	const traceId = `equipment_model_update_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -464,6 +491,7 @@ export async function updateEquipmentModelAction(input: {
 		const normalizedName = input.name?.trim();
 		const normalizedDescription = input.description?.trim() || null;
 		const normalizedPrice = input.price?.trim();
+		const normalizedLifeExpectancy = input.lifeExpectancy?.trim();
 
 		if (!equipmentModelId) {
 			await logEquipmentModelAudit({
@@ -508,6 +536,25 @@ export async function updateEquipmentModelAction(input: {
 		if (normalizedPrice) {
 			parsedPrice = Number(normalizedPrice);
 			if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+						if (normalizedLifeExpectancy) {
+							parsedLifeExpectancy = Number(normalizedLifeExpectancy);
+							if (
+								Number.isNaN(parsedLifeExpectancy) ||
+								parsedLifeExpectancy < 0 ||
+								!Number.isInteger(parsedLifeExpectancy)
+							) {
+								await logEquipmentModelAudit({
+									action: "Update equipment model",
+									status: "FAILED",
+									message: "Update failed: Invalid life expectancy provided.",
+									userId: session.user.id,
+								});
+								return {
+									ok: false,
+									message: "Life expectancy must be a valid non-negative whole number.",
+								};
+							}
+						}
 				await logEquipmentModelAudit({
 					action: "Update equipment model",
 					status: "FAILED",
@@ -554,6 +601,7 @@ export async function updateEquipmentModelAction(input: {
 				description: normalizedDescription,
 				type: input.type,
 				price: parsedPrice,
+				lifeExpectancy: parsedLifeExpectancy,
 			},
 			select: {
 				id: true,

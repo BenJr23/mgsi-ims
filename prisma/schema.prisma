@@ -166,6 +166,7 @@ model EquipmentModel {
   description String?
   type        EquipmentType
   price       Decimal?      @db.Decimal(10, 2)
+  lifeExpectancy Int?
   photoUrl    String?
   createdById String
   createdAt   DateTime      @default(now())

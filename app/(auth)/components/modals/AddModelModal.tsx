@@ -15,6 +15,7 @@ interface AddModelModalProps {
     description: string;
     type: EquipmentType;
     price: string;
+    lifeExpectancy: string;
     photoFile: File | null;
   }) => Promise<void> | void;
 }
@@ -56,6 +57,7 @@ export function AddModelModal({
       description: formData.get('description') as string,
       type: formData.get('type') as EquipmentType,
       price: formData.get('price') as string,
+      lifeExpectancy: formData.get('lifeExpectancy') as string,
       photoFile: (() => {
         const file = formData.get('photoFile');
         return file instanceof File && file.size > 0 ? file : null;
@@ -222,6 +224,24 @@ export function AddModelModal({
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+
+                                      <div className="space-y-2">
+                                        <label htmlFor="model-life-expectancy" className="block text-sm font-medium text-black">
+                                          Life Expectancy
+                                        </label>
+                                        <input
+                                          type="number"
+                                          id="model-life-expectancy"
+                                          name="lifeExpectancy"
+                                          min="0"
+                                          step="1"
+                                          placeholder="e.g. 5"
+                                          className="w-full px-3 py-2 border border-stone-300 rounded-lg shadow-sm text-sm text-black focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-gray-600"
+                                        />
+                                        <p className="text-xs text-gray-600">
+                                          Optional whole number in years.
+                                        </p>
+                                      </div>
                       ₱
                     </span>
                     <input

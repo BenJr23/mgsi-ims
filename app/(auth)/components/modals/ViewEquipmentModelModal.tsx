@@ -109,6 +109,15 @@ export function ViewEquipmentModelModal({
                   />
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-stone-700">Life Expectancy</label>
+                  <input
+                    type="text"
+                    value={model.lifeExpectancy != null ? `${model.lifeExpectancy} years` : '—'}
+                    readOnly
+                    className="w-full px-3 py-2 border border-stone-200 rounded-lg shadow-sm text-sm bg-stone-50 text-stone-700"
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="block text-sm font-medium text-stone-700">Units</label>
                   <input
                     type="text"

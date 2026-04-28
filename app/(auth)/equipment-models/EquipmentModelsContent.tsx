@@ -125,6 +125,7 @@ export default function EquipmentModelsContent() {
         description: string;
         type: EquipmentType;
         price: string;
+        lifeExpectancy: string;
         photoFile: File | null;
     }) => {
         setIsSubmittingModel(true);
@@ -259,6 +260,7 @@ export default function EquipmentModelsContent() {
         description: string;
         type: EquipmentType;
         price: string;
+        lifeExpectancy: string;
         photoFile: File | null;
     }) => {
         if (!editModel) {
@@ -472,6 +474,9 @@ export default function EquipmentModelsContent() {
                                         Price
                                     </th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
+                                        Life Expectancy
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                                         Units
                                     </th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
@@ -507,6 +512,10 @@ export default function EquipmentModelsContent() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600">
+                                                    {model.lifeExpectancy != null ? `${model.lifeExpectancy} years` : '—'}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className="text-sm text-stone-600">{model.unitCount}</span>
                                                 </td>
@@ -534,6 +543,7 @@ export default function EquipmentModelsContent() {
                                 ) : (
                                     <tr>
                                         <td className="px-6 py-10 text-center text-sm text-stone-500" colSpan={6}>
+                                        <td className="px-6 py-10 text-center text-sm text-stone-500" colSpan={7}>
                                             {isLoading ? 'Loading models...' : 'No models found.'}
                                         </td>
                                     </tr>
