@@ -102,6 +102,70 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
   }
 }
 
+const waitForImagesToLoad = (documentRoot: Document) => {
+  const images = Array.from(documentRoot.images);
+
+  return Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        }),
+    ),
+  );
+};
+
+const writePrintHtml = (targetWindow: Window, html: string) => {
+  targetWindow.document.open();
+  targetWindow.document.write(html);
+  targetWindow.document.close();
+};
+
+const openPrintHtml = async (html: string, windowFeatures: string) => {
+  const printWindow = window.open('', '', windowFeatures);
+
+  if (printWindow) {
+    writePrintHtml(printWindow, html);
+    return;
+  }
+
+  const printFrame = document.createElement('iframe');
+  printFrame.setAttribute('aria-hidden', 'true');
+  printFrame.style.position = 'fixed';
+  printFrame.style.right = '0';
+  printFrame.style.bottom = '0';
+  printFrame.style.width = '1px';
+  printFrame.style.height = '1px';
+  printFrame.style.border = '0';
+  printFrame.style.opacity = '0';
+  printFrame.style.pointerEvents = 'none';
+
+  printFrame.onload = () => {
+    const printDocument = printFrame.contentDocument;
+    const printWindow = printFrame.contentWindow;
+
+    if (!printDocument || !printWindow) {
+      printFrame.remove();
+      return;
+    }
+
+    void waitForImagesToLoad(printDocument).then(() => {
+      printWindow.focus();
+      printWindow.print();
+      window.setTimeout(() => printFrame.remove(), 1000);
+    });
+  };
+
+  document.body.appendChild(printFrame);
+  printFrame.srcdoc = html;
+};
+
 export default function EquipmentPage() {
   const [activeTab, setActiveTab] = useState<EquipmentStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,7 +197,6 @@ export default function EquipmentPage() {
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
-
     try {
       const [branchesResult, modelsResult] = await Promise.all([
         fetchBranchesAction(),
@@ -556,12 +619,6 @@ export default function EquipmentPage() {
 
     setError(null);
 
-    const printWindow = window.open('', '', 'width=1100,height=800');
-    if (!printWindow) {
-      setError('Please allow pop-ups to print QR codes.');
-      return;
-    }
-
     let qrDataUrl = '';
     try {
       const QRCodeLib = await import('qrcode');
@@ -571,7 +628,6 @@ export default function EquipmentPage() {
         errorCorrectionLevel: 'H',
       });
     } catch {
-      printWindow.close();
       setError('Unable to generate QR code image for printing right now.');
       return;
     }
@@ -705,8 +761,7 @@ export default function EquipmentPage() {
       </html>
     `;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    await openPrintHtml(html, 'width=1100,height=800');
   };
 
   const handlePrintFilteredEquipment = async () => {
@@ -722,11 +777,6 @@ export default function EquipmentPage() {
 
     setError(null);
 
-    const printWindow = window.open('', '', 'width=1200,height=900');
-    if (!printWindow) {
-      setError('Please allow pop-ups to print filtered equipment QR labels.');
-      return;
-    }
 
     let itemsWithQr: Array<EquipmentListItem & { qrDataUrl: string }> = [];
     try {
@@ -742,7 +792,6 @@ export default function EquipmentPage() {
         })),
       );
     } catch {
-      printWindow.close();
       setError('Unable to generate bulk QR code images for printing right now.');
       return;
     }
@@ -871,8 +920,7 @@ export default function EquipmentPage() {
       </html>
     `;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    await openPrintHtml(html, 'width=1200,height=900');
   };
 
   return (
