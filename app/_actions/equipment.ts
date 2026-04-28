@@ -135,6 +135,50 @@ function buildEquipmentQrCodeUrl(sku: string): string {
 	return `${getAppBaseUrl()}${EQUIPMENT_ROUTE_PREFIX}/${encodeURIComponent(sku)}`;
 }
 
+async function generateDeterministicSku(tx: any, areaId: string, equipmentModelId: string): Promise<string> {
+	const area = await tx.area.findUnique({
+		where: { id: areaId },
+		select: { roomCode: true, roomName: true },
+	});
+
+	const model = await tx.equipmentModel.findUnique({
+		where: { id: equipmentModelId },
+		select: { modelCode: true, name: true },
+	});
+
+	let areaCode = (area?.roomCode ?? area?.name ?? areaId).toString().trim().toUpperCase();
+	areaCode = areaCode.replace(/[^A-Z0-9]/g, "");
+
+	let modelCode = (model?.modelCode ?? model?.name ?? equipmentModelId).toString().trim().toUpperCase();
+	modelCode = modelCode.replace(/[^A-Z0-9]/g, "");
+
+	const prefix = `${areaCode}-${modelCode}`;
+
+	const existing = await tx.equipment.findMany({
+		where: {
+			areaId,
+			equipmentModelId,
+			sku: { startsWith: `${prefix}-` },
+		},
+		select: { sku: true },
+	});
+
+	let maxSeq = 0;
+	for (const e of existing) {
+		if (!e.sku) continue;
+		const m = e.sku.match(new RegExp(`${prefix}-(\\d{4})$`));
+		if (m && m[1]) {
+			const v = parseInt(m[1], 10);
+			if (!Number.isNaN(v) && v > maxSeq) maxSeq = v;
+		}
+	}
+
+	const nextSeq = maxSeq + 1;
+	const seqStr = String(nextSeq).padStart(4, "0");
+
+	return `${prefix}-${seqStr}`;
+}
+
 function parsePurchaseDateInput(value: string | null | undefined): Date | null {
 	const trimmed = value?.trim();
 
@@ -578,45 +622,66 @@ export async function createEquipmentAction(input: {
 			};
 		}
 
-		const createdEquipment = await prisma.$transaction(async (tx) => {
-			const createdRows: Array<{ id: string; sku: string | null; qrCode: string }> = [];
+		const MAX_ATTEMPTS = 5;
+		let createdEquipment: Array<{ id: string; sku: string | null; qrCode: string }> = [];
 
-			for (let i = 0; i < requestedQuantity; i += 1) {
-				const generatedSku = generateEquipmentSku();
-				const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
+		for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+			try {
+				createdEquipment = await prisma.$transaction(async (tx) => {
+					const createdRows: Array<{ id: string; sku: string | null; qrCode: string }> = [];
 
-				const created = await tx.equipment.create({
-					data: {
-						qrCode: generatedQrCode,
-						sku: generatedSku,
-						equipmentModelId: normalizedEquipmentModelId,
-						status: normalizedStatus,
-						areaId: normalizedAreaId,
-						purchaseDate: normalizedPurchaseDate,
-						createdById: session.user.id,
-					},
-					select: {
-						id: true,
-						sku: true,
-						qrCode: true,
-					},
+					for (let i = 0; i < requestedQuantity; i += 1) {
+						const generatedSku = await generateDeterministicSku(tx, normalizedAreaId, normalizedEquipmentModelId);
+						const generatedQrCode = buildEquipmentQrCodeUrl(generatedSku);
+
+						const created = await tx.equipment.create({
+							data: {
+								qrCode: generatedQrCode,
+								sku: generatedSku,
+								equipmentModelId: normalizedEquipmentModelId,
+								status: normalizedStatus,
+								areaId: normalizedAreaId,
+								purchaseDate: normalizedPurchaseDate,
+								createdById: session.user.id,
+							},
+							select: {
+								id: true,
+								sku: true,
+								qrCode: true,
+							},
+						});
+
+						await tx.equipmentLocationHistory.create({
+							data: {
+								equipmentId: created.id,
+								areaId: normalizedAreaId,
+								status: normalizedStatus,
+								event: "INITIAL",
+								changedById: session.user.id,
+							},
+						});
+
+						createdRows.push(created);
+					}
+
+					return createdRows;
 				});
 
-				await tx.equipmentLocationHistory.create({
-					data: {
-						equipmentId: created.id,
-						areaId: normalizedAreaId,
-						status: normalizedStatus,
-						event: "INITIAL",
-						changedById: session.user.id,
-					},
-				});
+				// success, break retry loop
+				break;
+			} catch (err) {
+				const errMsg = err instanceof Error ? err.message : String(err);
+				if (errMsg.includes("Unique constraint failed") && attempt < MAX_ATTEMPTS - 1) {
+					console.warn("[Equipment Action] SKU collision detected, retrying transaction", { traceId, attempt });
+					// small backoff to reduce contention
+					// eslint-disable-next-line no-await-in-loop
+					await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+					continue;
+				}
 
-				createdRows.push(created);
+				throw err;
 			}
-
-			return createdRows;
-		});
+		}
 
 		const firstCreated = createdEquipment[0];
 
