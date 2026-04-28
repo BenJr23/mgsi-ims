@@ -154,6 +154,39 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
 	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 
+	const loadModels = async (includePhotoUrl: boolean) => {
+		return prisma.equipmentModel.findMany({
+			where: {
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				name: true,
+				description: true,
+				type: true,
+				price: true,
+				...(includePhotoUrl ? { photoUrl: true } : {}),
+				createdAt: true,
+				createdBy: {
+					select: {
+						name: true,
+					},
+				},
+				equipment: {
+					where: {
+						deletedAt: null,
+					},
+					select: {
+						id: true,
+					},
+				},
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		});
+	};
+
 	try {
 		if (redisUrl && redisToken) {
 			try {
@@ -189,36 +222,23 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			}
 		}
 
-		const models = await prisma.equipmentModel.findMany({
-			where: {
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				name: true,
-				description: true,
-				type: true,
-				price: true,
-				photoUrl: true,
-				createdAt: true,
-				createdBy: {
-					select: {
-						name: true,
-					},
-				},
-				equipment: {
-					where: {
-						deletedAt: null,
-					},
-					select: {
-						id: true,
-					},
-				},
-			},
-			orderBy: {
-				createdAt: "desc",
-			},
-		});
+		let models;
+
+		try {
+			models = await loadModels(true);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+			if (errorMessage.toLowerCase().includes("photourl") || errorMessage.toLowerCase().includes("equipment_models")) {
+				console.warn("[EquipmentModel Action] Retrying model fetch without photoUrl", {
+					traceId,
+					error: errorMessage,
+				});
+				models = await loadModels(false);
+			} else {
+				throw error;
+			}
+		}
 
 		const formattedModels: EquipmentModelListItem[] = models.map((model) => ({
 			id: model.id,
@@ -226,7 +246,7 @@ export async function fetchEquipmentModelsAction(): Promise<FetchEquipmentModels
 			description: model.description ?? "",
 			type: model.type,
 			price: model.price ? model.price.toString() : null,
-			photoUrl: model.photoUrl,
+			photoUrl: "photoUrl" in model ? (model.photoUrl ?? null) : null,
 			createdBy: model.createdBy.name,
 			createdAt: new Intl.DateTimeFormat("en-US", {
 				month: "short",
