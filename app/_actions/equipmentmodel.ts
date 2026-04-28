@@ -69,7 +69,6 @@ type FetchEquipmentModelsResult =
 			message: string;
 		};
 
-const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v2";
 const EQUIPMENT_MODELS_CACHE_KEY = "equipment-models:all:v3";
 const EQUIPMENT_MODELS_CACHE_TTL_SECONDS = 300;
 

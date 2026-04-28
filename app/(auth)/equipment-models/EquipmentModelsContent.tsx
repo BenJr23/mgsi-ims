@@ -512,7 +512,6 @@ export default function EquipmentModelsContent() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-900">{model.price || '—'}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600">
                                                     {model.lifeExpectancy != null ? `${model.lifeExpectancy} years` : '—'}
                                                 </td>
@@ -542,7 +541,6 @@ export default function EquipmentModelsContent() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td className="px-6 py-10 text-center text-sm text-stone-500" colSpan={6}>
                                         <td className="px-6 py-10 text-center text-sm text-stone-500" colSpan={7}>
                                             {isLoading ? 'Loading models...' : 'No models found.'}
                                         </td>
