@@ -50,17 +50,15 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     }, [sessionId]);
 
     const handleAddItem = async (
-        qrCode: string,
+        equipmentId: string,
         status: AuditItemStatus,
         notes?: string
     ) => {
         setIsLoading(true);
         try {
-            // In a real app, you'd need to look up equipment by QR code first
-            // For now, we'll use the QR code as the equipment ID or search for it
             const result = await addAuditItemAction(
                 sessionId,
-                qrCode, // This should be equipmentId, but we'll need to search for it
+                equipmentId,
                 status,
                 notes
             );
@@ -213,11 +211,11 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             <ScannerModal
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
-                onSave={(qrCode, status, notes) => {
-                    handleAddItem(qrCode, status, notes);
+                onSave={(equipmentId, status, notes) => {
+                    handleAddItem(equipmentId, status, notes);
                 }}
-                onAddAnother={(qrCode, status, notes) => {
-                    handleAddItem(qrCode, status, notes);
+                onAddAnother={(equipmentId, status, notes) => {
+                    handleAddItem(equipmentId, status, notes);
                     // Keep modal open for another scan
                     setIsScannerOpen(true);
                 }}

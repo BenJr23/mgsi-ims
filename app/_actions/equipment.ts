@@ -65,6 +65,17 @@ export type EquipmentListItem = {
 	createdAt: string;
 };
 
+export type EquipmentLookupDetail = {
+	id: string;
+	qrCode: string;
+	sku: string;
+	status: EquipmentStatus;
+	modelName: string;
+	modelType: string;
+	areaName: string;
+	branchName: string;
+};
+
 type FetchEquipmentResult =
 	| {
 			ok: true;
@@ -74,6 +85,17 @@ type FetchEquipmentResult =
 			ok: false;
 			message: string;
 		};
+
+type FindEquipmentBySkuResult =
+	| {
+			ok: true;
+			equipment: EquipmentLookupDetail;
+		}
+	| {
+			ok: false;
+			message: string;
+		};
+
 
 const EQUIPMENT_CACHE_KEY = "equipment:all:v2";
 const BRANCHES_CACHE_KEY = "branches:all:v2";
@@ -444,6 +466,85 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 		return {
 			ok: false,
 			message: "Unable to fetch equipment right now.",
+		};
+	}
+}
+
+export async function findEquipmentBySkuAction(
+	sku: string,
+): Promise<FindEquipmentBySkuResult> {
+	const traceId = `equipment_lookup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	const normalizedSku = sku.trim();
+	console.log("[Equipment Action] Lookup start", { traceId, sku, normalizedSku });
+
+	if (!normalizedSku) {
+		console.warn("[Equipment Action] Lookup failed: empty SKU", { traceId, sku });
+		return {
+			ok: false,
+			message: "SKU is required.",
+		};
+	}
+
+	try {
+		const equipment = await prisma.equipment.findFirst({
+			where: {
+				sku: {
+					equals: normalizedSku,
+					mode: "insensitive",
+				},
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				qrCode: true,
+				sku: true,
+				status: true,
+				areaId: true,
+				equipmentModel: {
+					select: {
+						name: true,
+						type: true,
+					},
+				},
+			},
+		});
+
+		if (!equipment || !equipment.sku) {
+			console.warn("[Equipment Action] Lookup no match", {
+				traceId,
+				normalizedSku,
+			});
+			return {
+				ok: false,
+				message: "No equipment found for this SKU.",
+			};
+		}
+
+		const areaName = equipment.areaId;
+		const branchName = "Unknown branch";
+
+		return {
+			ok: true,
+			equipment: {
+				id: equipment.id,
+				qrCode: equipment.qrCode,
+				sku: equipment.sku,
+				status: equipment.status,
+				modelName: equipment.equipmentModel.name,
+				modelType: equipment.equipmentModel.type,
+				areaName,
+				branchName,
+			},
+		};
+	} catch (error) {
+		console.error("[Equipment Action] Lookup failed", {
+			traceId,
+			error: error instanceof Error ? error.message : "Unknown error",
+		});
+
+		return {
+			ok: false,
+			message: "Unable to look up equipment right now.",
 		};
 	}
 }
