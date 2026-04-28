@@ -107,7 +107,7 @@ export function AddModelModal({
               stiffness: 400,
               damping: 30
             }}
-            className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden"
+            className="relative w-full max-w-lg mx-4 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto bg-white rounded-xl shadow-xl border border-stone-200"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-model-title">
