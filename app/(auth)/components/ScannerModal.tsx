@@ -32,7 +32,7 @@ export function ScannerModal({
   const [notes, setNotes] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const scannerControlsRef = useRef<{ stop: () => void } | null>(null);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -75,13 +75,12 @@ export function ScannerModal({
     if (!isOpen || !videoRef.current || scannedQR) return;
 
     const codeReader = new BrowserMultiFormatReader();
-    codeReaderRef.current = codeReader;
 
     let isActive = true;
 
     const startScanning = async () => {
       try {
-        await codeReader.decodeFromVideoDevice(
+        const controls = await codeReader.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
           (result, error) => {
@@ -89,7 +88,7 @@ export function ScannerModal({
 
             if (result) {
               setScannedQR(result.getText());
-              codeReader.reset();
+              scannerControlsRef.current?.stop();
               return;
             }
 
@@ -98,6 +97,8 @@ export function ScannerModal({
             }
           }
         );
+
+        scannerControlsRef.current = controls;
       } catch (error) {
         console.error("QR scanner error:", error);
         setCameraError("Unable to start QR scanner. Please try again.");
@@ -108,8 +109,8 @@ export function ScannerModal({
 
     return () => {
       isActive = false;
-      codeReader.reset();
-      codeReaderRef.current = null;
+      scannerControlsRef.current?.stop();
+      scannerControlsRef.current = null;
     };
   }, [isOpen, scannedQR]);
 
@@ -136,7 +137,8 @@ export function ScannerModal({
   };
 
   const resetModal = () => {
-    codeReaderRef.current?.reset();
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
     setScannedQR(null);
     setStatus("PASS");
     setNotes("");
