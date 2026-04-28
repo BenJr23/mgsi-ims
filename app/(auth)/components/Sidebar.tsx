@@ -13,6 +13,7 @@ import {
   BarChart3Icon,
   Building2Icon,
   UsersIcon,
+  ClipboardListIcon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -52,6 +53,11 @@ const MAIN_NAV_ITEMS = [
   name: 'Reports',
   icon: BarChart3Icon,
   href: '/reports',
+},
+{
+  name: 'Audit History',
+  icon: ClipboardListIcon,
+  href: '/audit-history',
 }] satisfies NavItem[];
 
 const ADMIN_NAV_ITEMS = [

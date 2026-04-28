@@ -51,6 +51,7 @@ model User {
   equipment       Equipment[]      @relation("EquipmentCreatedBy")
   equipmentHistory EquipmentLocationHistory[] @relation("EquipmentHistoryChangedBy")
   auditLogs       AuditLog[]
+  auditSessions   AuditSession[] @relation("AuditSessionStartedBy")
 }
 
 enum EquipmentHistoryEvent {
@@ -193,6 +194,7 @@ model Equipment {
   equipmentModel   EquipmentModel  @relation(fields: [equipmentModelId], references: [id])
   createdBy        User            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
   locationHistory  EquipmentLocationHistory[]
+  auditItems       AuditSessionItem[] @relation("AuditSessionItem")
 
   @@index([equipmentModelId])
   @@index([areaId])
@@ -217,3 +219,49 @@ model EquipmentLocationHistory {
   @@index([equipmentId, changedAt])
   @@map("equipment_location_history")
 }
+
+enum AuditSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AuditItemStatus {
+  PASS
+  FAIL
+  MISSING
+}
+
+model AuditSession {
+  id          String               @id @default(cuid())
+  status      AuditSessionStatus   @default(IN_PROGRESS)
+  startedAt   DateTime             @default(now())
+  completedAt DateTime?
+  startedById String
+  startedBy   User                 @relation("AuditSessionStartedBy", fields: [startedById], references: [id], onDelete: Restrict)
+  items       AuditSessionItem[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([status])
+  @@index([startedById])
+  @@index([startedAt])
+  @@map("audit_sessions")
+}
+
+model AuditSessionItem {
+  id          String             @id @default(cuid())
+  sessionId   String
+  equipmentId String
+  status      AuditItemStatus    @default(PASS)
+  notes       String?
+  scannedAt   DateTime           @default(now())
+  session     AuditSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  equipment   Equipment          @relation("AuditSessionItem", fields: [equipmentId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId])
+  @@index([equipmentId])
+  @@unique([sessionId, equipmentId])
+  @@map("audit_session_items")
+}
+
