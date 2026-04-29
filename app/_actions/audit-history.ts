@@ -3,10 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
 import { AuditSessionStatus, AuditItemStatus } from "@/app/generated/prisma/enums";
+import { fetchBranchesAction } from "@/app/_actions/branches";
 
 export type AuditSessionWithItems = {
   id: string;
   status: AuditSessionStatus;
+  areaId: string;
+  areaName: string;
   startedAt: string;
   completedAt: string | null;
   startedBy: {
@@ -37,6 +40,9 @@ export type AuditSessionItemDetail = {
 export type AuditSessionDetail = {
   id: string;
   status: AuditSessionStatus;
+  areaId: string;
+  areaName: string;
+  branchId: string;
   startedAt: string;
   completedAt: string | null;
   startedBy: {
@@ -74,16 +80,22 @@ type CompleteAuditSessionResult =
 /**
  * Create a new audit session
  */
-export async function createAuditSessionAction(): Promise<CreateAuditSessionResult> {
+export async function createAuditSessionAction(areaId: string): Promise<CreateAuditSessionResult> {
   try {
     const session = await getSession();
     if (!session?.user?.id) {
       return { ok: false, message: "Unauthorized" };
     }
 
+    const normalizedAreaId = areaId.trim();
+    if (!normalizedAreaId) {
+      return { ok: false, message: "Area is required" };
+    }
+
     const auditSession = await prisma.auditSession.create({
       data: {
         startedById: session.user.id,
+        areaId: normalizedAreaId,
         status: "IN_PROGRESS",
       },
     });
@@ -100,10 +112,22 @@ export async function createAuditSessionAction(): Promise<CreateAuditSessionResu
  */
 export async function getAuditSessionsAction(): Promise<GetAuditSessionsResult> {
   try {
+    const branchesResult = await fetchBranchesAction();
+    const areaInfoById = new Map<string, { areaName: string }>();
+
+    if (branchesResult.ok) {
+      for (const branch of branchesResult.branches) {
+        for (const area of branch.areas ?? []) {
+          areaInfoById.set(area.id, { areaName: area.name });
+        }
+      }
+    }
+
     const sessions = await prisma.auditSession.findMany({
       select: {
         id: true,
         status: true,
+        areaId: true,
         startedAt: true,
         completedAt: true,
         createdAt: true,
@@ -125,6 +149,8 @@ export async function getAuditSessionsAction(): Promise<GetAuditSessionsResult> 
       sessions: sessions.map((s) => ({
         id: s.id,
         status: s.status,
+        areaId: s.areaId,
+        areaName: areaInfoById.get(s.areaId)?.areaName ?? s.areaId,
         startedAt: s.startedAt.toISOString(),
         completedAt: s.completedAt?.toISOString() || null,
         startedBy: s.startedBy,
@@ -145,11 +171,23 @@ export async function getAuditSessionDetailAction(
   sessionId: string
 ): Promise<GetAuditSessionDetailResult> {
   try {
+    const branchesResult = await fetchBranchesAction();
+    const areaInfoById = new Map<string, { areaName: string; branchId: string }>();
+
+    if (branchesResult.ok) {
+      for (const branch of branchesResult.branches) {
+        for (const area of branch.areas ?? []) {
+          areaInfoById.set(area.id, { areaName: area.name, branchId: branch.id });
+        }
+      }
+    }
+
     const session = await prisma.auditSession.findUnique({
       where: { id: sessionId },
       select: {
         id: true,
         status: true,
+        areaId: true,
         startedAt: true,
         completedAt: true,
         createdAt: true,
@@ -186,11 +224,16 @@ export async function getAuditSessionDetailAction(
       return { ok: false, message: "Session not found" };
     }
 
+    const areaInfo = areaInfoById.get(session.areaId);
+
     return {
       ok: true,
       session: {
         id: session.id,
         status: session.status,
+        areaId: session.areaId,
+        areaName: areaInfo?.areaName ?? session.areaId,
+        branchId: areaInfo?.branchId ?? "",
         startedAt: session.startedAt.toISOString(),
         completedAt: session.completedAt?.toISOString() || null,
         startedBy: session.startedBy,
@@ -231,7 +274,7 @@ export async function addAuditItemAction(
   try {
     const session = await prisma.auditSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, areaId: true },
     });
 
     if (!session) {
@@ -244,11 +287,15 @@ export async function addAuditItemAction(
 
     const equipment = await prisma.equipment.findUnique({
       where: { id: equipmentId },
-      select: { id: true },
+      select: { id: true, areaId: true },
     });
 
     if (!equipment) {
       return { ok: false, message: "Equipment not found" };
+    }
+
+    if (equipment.areaId !== session.areaId) {
+      return { ok: false, message: "Scanned equipment is outside the session area" };
     }
 
     const auditItem = await prisma.auditSessionItem.upsert({

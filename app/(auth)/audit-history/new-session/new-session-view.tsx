@@ -31,6 +31,8 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     const [error, setError] = useState<string | null>(null);
     const [sessionStatus, setSessionStatus] = useState<"IN_PROGRESS" | "COMPLETED" | "CANCELLED">("IN_PROGRESS");
     const [branches, setBranches] = useState<BranchItem[]>([]);
+    const [sessionBranchId, setSessionBranchId] = useState("");
+    const [sessionAreaId, setSessionAreaId] = useState("");
     const [selectedBranchId, setSelectedBranchId] = useState("");
     const [selectedAreaId, setSelectedAreaId] = useState("");
     const [selectedStatus, setSelectedStatus] = useState<AuditItemStatus>("AVAILABLE");
@@ -46,6 +48,8 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                 if (result.ok) {
                     setItems(result.session.items);
                     setSessionStatus(result.session.status);
+                    setSessionBranchId(result.session.branchId);
+                    setSessionAreaId(result.session.areaId);
                 } else {
                     setError(result.message);
                 }
@@ -66,12 +70,6 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                 const result = await fetchBranchesAction();
                 if (result.ok) {
                     setBranches(result.branches);
-
-                    const initialBranch = result.branches[0];
-                    const initialArea = initialBranch?.areas?.[0];
-
-                    setSelectedBranchId(initialBranch?.id ?? "");
-                    setSelectedAreaId(initialArea?.id ?? "");
                 } else {
                     setError(result.message);
                     setBranches([]);
@@ -86,6 +84,25 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
 
         fetchBranches();
     }, []);
+
+    useEffect(() => {
+        if (!branches.length || !sessionAreaId) {
+            return;
+        }
+
+        const branchForSessionArea = branches.find((branch) =>
+            (branch.areas ?? []).some((area) => area.id === sessionAreaId)
+        );
+
+        if (!branchForSessionArea) {
+            setSelectedBranchId(sessionBranchId || "");
+            setSelectedAreaId(sessionAreaId);
+            return;
+        }
+
+        setSelectedBranchId(branchForSessionArea.id);
+        setSelectedAreaId(sessionAreaId);
+    }, [branches, sessionAreaId, sessionBranchId]);
 
     const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? null;
     const selectedAreas = selectedBranch?.areas ?? [];
@@ -331,7 +348,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                                 setSelectedAreaId(nextBranch?.areas?.[0]?.id ?? "");
                             }}
                             className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            disabled={isLoadingBranches || branches.length === 0}
+                            disabled={true}
                         >
                             <option value="">Select a branch</option>
                             {branches.map((branch) => (
@@ -348,7 +365,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                             value={selectedAreaId}
                             onChange={(event) => setSelectedAreaId(event.target.value)}
                             className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            disabled={isLoadingBranches || selectedAreas.length === 0}
+                            disabled={true}
                         >
                             <option value="">Select an area</option>
                             {selectedAreas.map((area) => (

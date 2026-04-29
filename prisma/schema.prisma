@@ -238,6 +238,7 @@ enum AuditItemStatus {
 model AuditSession {
   id          String               @id @default(cuid())
   status      AuditSessionStatus   @default(IN_PROGRESS)
+  areaId      String
   startedAt   DateTime             @default(now())
   completedAt DateTime?
   startedById String
@@ -247,6 +248,7 @@ model AuditSession {
   updatedAt   DateTime             @updatedAt
 
   @@index([status])
+  @@index([areaId])
   @@index([startedById])
   @@index([startedAt])
   @@map("audit_sessions")
