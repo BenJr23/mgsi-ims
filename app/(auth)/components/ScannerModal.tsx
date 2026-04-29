@@ -4,13 +4,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { XIcon, CheckCircleIcon, AlertCircleIcon, CameraIcon } from "lucide-react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import type { EquipmentLookupDetail } from "@/app/_actions/equipment";
-import type { AuditItemStatus, EquipmentStatus } from "@/app/generated/prisma/enums";
+import type { AuditItemStatus } from "@/app/generated/prisma/enums";
 
 type ScannerModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (equipmentId: string, status: AuditItemStatus, notes?: string) => void;
-  onAddAnother: (equipmentId: string, status: AuditItemStatus, notes?: string) => void;
+  onSave: (equipmentId: string, status: AuditItemStatus, notes?: string) => void | Promise<void>;
+  onAddAnother: (equipmentId: string, status: AuditItemStatus, notes?: string) => void | Promise<void>;
   isLoading?: boolean;
 };
 
@@ -24,7 +24,7 @@ export function ScannerModal({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [scannedQR, setScannedQR] = useState<string | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [status, setStatus] = useState<EquipmentStatus>("AVAILABLE");
+  const [status, setStatus] = useState<AuditItemStatus>("PASS");
   const [notes, setNotes] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [equipmentDetail, setEquipmentDetail] = useState<EquipmentLookupDetail | null>(null);
@@ -66,18 +66,6 @@ export function ScannerModal({
         sku,
       });
       return sku;
-    }
-  };
-
-  const mapEquipmentStatusToAuditStatus = (value: EquipmentStatus): AuditItemStatus => {
-    switch (value) {
-      case "AVAILABLE":
-        return "PASS";
-      case "MAINTENANCE":
-        return "FAIL";
-      case "RETIRED":
-      case "LOST":
-        return "MISSING";
     }
   };
 
@@ -204,23 +192,22 @@ export function ScannerModal({
     };
   }, [scannedQR]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (scannedQR && equipmentDetail) {
-      onSave(equipmentDetail.id, mapEquipmentStatusToAuditStatus(status), notes || undefined);
+      await onSave(equipmentDetail.id, status, notes || undefined);
       handleClose();
     }
   };
 
-  const handleAddAnother = () => {
+  const handleAddAnother = async () => {
     if (scannedQR && equipmentDetail) {
-      onAddAnother(equipmentDetail.id, mapEquipmentStatusToAuditStatus(status), notes || undefined);
+      await onAddAnother(equipmentDetail.id, status, notes || undefined);
       // Reset form state and bump session to restart the scanner effect
       setScannedQR(null);
       setIsDetecting(false);
       setEquipmentDetail(null);
       setEquipmentError(null);
       setIsEquipmentLoading(false);
-      setStatus("AVAILABLE");
       setNotes("");
       setScanSession((s) => s + 1);
     }
@@ -232,7 +219,6 @@ export function ScannerModal({
     setEquipmentDetail(null);
     setEquipmentError(null);
     setIsEquipmentLoading(false);
-    setStatus("AVAILABLE");
     setNotes("");
     setScanSession((s) => s + 1);
   };
@@ -244,9 +230,19 @@ export function ScannerModal({
     setEquipmentDetail(null);
     setEquipmentError(null);
     setIsEquipmentLoading(false);
-    setStatus("AVAILABLE");
+    setStatus("PASS");
     setNotes("");
     onClose();
+  };
+
+  const getStatusButtonClasses = (value: AuditItemStatus) => {
+    if (status === value) {
+      if (value === "PASS") return "bg-emerald-600 text-white";
+      if (value === "FAIL") return "bg-rose-600 text-white";
+      return "bg-amber-600 text-white";
+    }
+
+    return "bg-stone-100 text-stone-700 hover:bg-stone-200";
   };
 
   if (!isOpen) return null;
@@ -335,25 +331,18 @@ export function ScannerModal({
 
               {/* Status Selection */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-stone-700">Item Status:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["AVAILABLE", "MAINTENANCE", "RETIRED", "LOST"] as const).map((s) => (
+                <label className="block text-sm font-medium text-stone-700">Audit Result:</label>
+                <p className="text-xs text-stone-500">
+                  This result stays active for the next scans until you change it.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["PASS", "FAIL", "MISSING"] as const).map((s) => (
                     <button
                       key={s}
                       onClick={() => setStatus(s)}
-                      className={`px-3 py-2 rounded-lg font-medium text-sm transition ${
-                        status === s
-                          ? s === "AVAILABLE"
-                            ? "bg-emerald-600 text-white"
-                            : s === "MAINTENANCE"
-                              ? "bg-amber-600 text-white"
-                              : s === "RETIRED"
-                                ? "bg-stone-600 text-white"
-                                : "bg-rose-600 text-white"
-                          : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-                      }`}
+                      className={`px-3 py-2 rounded-lg font-medium text-sm transition ${getStatusButtonClasses(s)}`}
                     >
-                      {s}
+                      {s === "PASS" ? "Pass" : s === "FAIL" ? "Failed" : "Missing"}
                     </button>
                   ))}
                 </div>
