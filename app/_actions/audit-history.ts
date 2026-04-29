@@ -2,10 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
-import {
-  AuditSessionStatus,
-  AuditItemStatus,
-} from "@/app/generated/prisma/enums";
+import { AuditSessionStatus, AuditItemStatus } from "@/app/generated/prisma/enums";
 
 export type AuditSessionWithItems = {
   id: string;
@@ -51,63 +48,28 @@ export type AuditSessionDetail = {
 };
 
 type CreateAuditSessionResult =
-  | {
-      ok: true;
-      sessionId: string;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; sessionId: string }
+  | { ok: false; message: string };
 
 type GetAuditSessionsResult =
-  | {
-      ok: true;
-      sessions: AuditSessionWithItems[];
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; sessions: AuditSessionWithItems[] }
+  | { ok: false; message: string };
 
 type GetAuditSessionDetailResult =
-  | {
-      ok: true;
-      session: AuditSessionDetail;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; session: AuditSessionDetail }
+  | { ok: false; message: string };
 
 type GetAuditSessionItemDetailResult =
-  | {
-      ok: true;
-      item: AuditSessionItemDetail;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; item: AuditSessionItemDetail }
+  | { ok: false; message: string };
 
 type AddAuditItemResult =
-  | {
-      ok: true;
-      itemId: string;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true; itemId: string }
+  | { ok: false; message: string };
 
 type CompleteAuditSessionResult =
-  | {
-      ok: true;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
+  | { ok: true }
+  | { ok: false; message: string };
 
 /**
  * Create a new audit session
@@ -116,10 +78,7 @@ export async function createAuditSessionAction(): Promise<CreateAuditSessionResu
   try {
     const session = await getSession();
     if (!session?.user?.id) {
-      return {
-        ok: false,
-        message: "Unauthorized",
-      };
+      return { ok: false, message: "Unauthorized" };
     }
 
     const auditSession = await prisma.auditSession.create({
@@ -129,16 +88,10 @@ export async function createAuditSessionAction(): Promise<CreateAuditSessionResu
       },
     });
 
-    return {
-      ok: true,
-      sessionId: auditSession.id,
-    };
+    return { ok: true, sessionId: auditSession.id };
   } catch (error) {
     console.error("Error creating audit session:", error);
-    return {
-      ok: false,
-      message: "Failed to create audit session",
-    };
+    return { ok: false, message: "Failed to create audit session" };
   }
 }
 
@@ -161,14 +114,10 @@ export async function getAuditSessionsAction(): Promise<GetAuditSessionsResult> 
           },
         },
         _count: {
-          select: {
-            items: true,
-          },
+          select: { items: true },
         },
       },
-      orderBy: {
-        startedAt: "desc",
-      },
+      orderBy: { startedAt: "desc" },
     });
 
     return {
@@ -185,10 +134,7 @@ export async function getAuditSessionsAction(): Promise<GetAuditSessionsResult> 
     };
   } catch (error) {
     console.error("Error fetching audit sessions:", error);
-    return {
-      ok: false,
-      message: "Failed to fetch audit sessions",
-    };
+    return { ok: false, message: "Failed to fetch audit sessions" };
   }
 }
 
@@ -208,10 +154,7 @@ export async function getAuditSessionDetailAction(
         completedAt: true,
         createdAt: true,
         startedBy: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         items: {
           select: {
@@ -234,18 +177,13 @@ export async function getAuditSessionDetailAction(
               },
             },
           },
-          orderBy: {
-            scannedAt: "desc",
-          },
+          orderBy: { scannedAt: "desc" },
         },
       },
     });
 
     if (!session) {
-      return {
-        ok: false,
-        message: "Session not found",
-      };
+      return { ok: false, message: "Session not found" };
     }
 
     return {
@@ -277,10 +215,7 @@ export async function getAuditSessionDetailAction(
     };
   } catch (error) {
     console.error("Error fetching audit session details:", error);
-    return {
-      ok: false,
-      message: "Failed to fetch audit session details",
-    };
+    return { ok: false, message: "Failed to fetch audit session details" };
   }
 }
 
@@ -290,50 +225,35 @@ export async function getAuditSessionDetailAction(
 export async function addAuditItemAction(
   sessionId: string,
   equipmentId: string,
-  status: AuditItemStatus = "PASS",
+  status: AuditItemStatus = "AVAILABLE",
   notes?: string
 ): Promise<AddAuditItemResult> {
   try {
-    // Verify session exists and is in progress
     const session = await prisma.auditSession.findUnique({
       where: { id: sessionId },
       select: { id: true, status: true },
     });
 
     if (!session) {
-      return {
-        ok: false,
-        message: "Session not found",
-      };
+      return { ok: false, message: "Session not found" };
     }
 
     if (session.status !== "IN_PROGRESS") {
-      return {
-        ok: false,
-        message: "Session is not in progress",
-      };
+      return { ok: false, message: "Session is not in progress" };
     }
 
-    // Verify equipment exists
     const equipment = await prisma.equipment.findUnique({
       where: { id: equipmentId },
       select: { id: true },
     });
 
     if (!equipment) {
-      return {
-        ok: false,
-        message: "Equipment not found",
-      };
+      return { ok: false, message: "Equipment not found" };
     }
 
-    // Create or update the audit item
     const auditItem = await prisma.auditSessionItem.upsert({
       where: {
-        sessionId_equipmentId: {
-          sessionId,
-          equipmentId,
-        },
+        sessionId_equipmentId: { sessionId, equipmentId },
       },
       create: {
         sessionId,
@@ -348,16 +268,10 @@ export async function addAuditItemAction(
       },
     });
 
-    return {
-      ok: true,
-      itemId: auditItem.id,
-    };
+    return { ok: true, itemId: auditItem.id };
   } catch (error) {
     console.error("Error adding audit item:", error);
-    return {
-      ok: false,
-      message: "Failed to add item to audit session",
-    };
+    return { ok: false, message: "Failed to add item to audit session" };
   }
 }
 
@@ -393,10 +307,7 @@ export async function getAuditSessionItemDetailAction(
     });
 
     if (!item) {
-      return {
-        ok: false,
-        message: "Item not found",
-      };
+      return { ok: false, message: "Item not found" };
     }
 
     return {
@@ -420,10 +331,7 @@ export async function getAuditSessionItemDetailAction(
     };
   } catch (error) {
     console.error("Error fetching audit item detail:", error);
-    return {
-      ok: false,
-      message: "Failed to fetch audit item detail",
-    };
+    return { ok: false, message: "Failed to fetch audit item detail" };
   }
 }
 
@@ -440,17 +348,11 @@ export async function completeAuditSessionAction(
     });
 
     if (!session) {
-      return {
-        ok: false,
-        message: "Session not found",
-      };
+      return { ok: false, message: "Session not found" };
     }
 
     if (session.status !== "IN_PROGRESS") {
-      return {
-        ok: false,
-        message: "Session is not in progress",
-      };
+      return { ok: false, message: "Session is not in progress" };
     }
 
     await prisma.auditSession.update({
@@ -461,15 +363,10 @@ export async function completeAuditSessionAction(
       },
     });
 
-    return {
-      ok: true,
-    };
+    return { ok: true };
   } catch (error) {
     console.error("Error completing audit session:", error);
-    return {
-      ok: false,
-      message: "Failed to complete audit session",
-    };
+    return { ok: false, message: "Failed to complete audit session" };
   }
 }
 
@@ -486,17 +383,11 @@ export async function cancelAuditSessionAction(
     });
 
     if (!session) {
-      return {
-        ok: false,
-        message: "Session not found",
-      };
+      return { ok: false, message: "Session not found" };
     }
 
     if (session.status !== "IN_PROGRESS") {
-      return {
-        ok: false,
-        message: "Session is not in progress",
-      };
+      return { ok: false, message: "Session is not in progress" };
     }
 
     await prisma.auditSession.update({
@@ -507,14 +398,9 @@ export async function cancelAuditSessionAction(
       },
     });
 
-    return {
-      ok: true,
-    };
+    return { ok: true };
   } catch (error) {
     console.error("Error cancelling audit session:", error);
-    return {
-      ok: false,
-      message: "Failed to cancel audit session",
-    };
+    return { ok: false, message: "Failed to cancel audit session" };
   }
 }

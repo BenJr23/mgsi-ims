@@ -13,25 +13,44 @@ type ItemDetailViewProps = {
 
 function getStatusBadge(status: string) {
     switch (status) {
-        case "PASS":
+        case "AVAILABLE":
             return "bg-emerald-100 text-emerald-800 border-emerald-200";
-        case "FAIL":
-            return "bg-rose-100 text-rose-800 border-rose-200";
-        case "MISSING":
+        case "MAINTENANCE":
             return "bg-amber-100 text-amber-800 border-amber-200";
+        case "RETIRED":
+            return "bg-stone-100 text-stone-800 border-stone-200";
+        case "LOST":
+            return "bg-rose-100 text-rose-800 border-rose-200";
         default:
             return "bg-stone-100 text-stone-800 border-stone-200";
     }
 }
 
+function getStatusLabel(status: string) {
+    switch (status) {
+        case "AVAILABLE":
+            return "Available";
+        case "MAINTENANCE":
+            return "Maintenance";
+        case "RETIRED":
+            return "Retired";
+        case "LOST":
+            return "Lost";
+        default:
+            return status;
+    }
+}
+
 function getStatusIcon(status: string) {
     switch (status) {
-        case "PASS":
+        case "AVAILABLE":
             return <CheckCircleIcon className="w-6 h-6 text-emerald-600" />;
-        case "FAIL":
-            return <XCircleIcon className="w-6 h-6 text-rose-600" />;
-        case "MISSING":
+        case "MAINTENANCE":
             return <AlertCircleIcon className="w-6 h-6 text-amber-600" />;
+        case "RETIRED":
+            return <CheckCircleIcon className="w-6 h-6 text-stone-600" />;
+        case "LOST":
+            return <XCircleIcon className="w-6 h-6 text-rose-600" />;
         default:
             return <CheckCircleIcon className="w-6 h-6 text-stone-600" />;
     }
@@ -137,7 +156,7 @@ export function ItemDetailView({ sessionId, itemId }: ItemDetailViewProps) {
                             <span
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getStatusBadge(item.status)}`}
                             >
-                                {item.status}
+                                {getStatusLabel(item.status)}
                             </span>
                         </div>
                     </div>

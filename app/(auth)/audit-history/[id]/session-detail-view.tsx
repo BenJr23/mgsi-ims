@@ -97,11 +97,10 @@ export function SessionDetailView({ sessionId }: SessionDetailViewProps) {
     );
   }
 
-  const failedCount = session.items.filter((i) => i.status === "FAIL").length;
-  const missingCount = session.items.filter(
-    (i) => i.status === "MISSING"
-  ).length;
-  const passCount = session.items.filter((i) => i.status === "PASS").length;
+  const availableCount = session.items.filter((i) => i.status === "AVAILABLE").length;
+  const maintenanceCount = session.items.filter((i) => i.status === "MAINTENANCE").length;
+  const retiredCount = session.items.filter((i) => i.status === "RETIRED").length;
+  const lostCount = session.items.filter((i) => i.status === "LOST").length;
 
   return (
     <main className="flex-1 p-8 space-y-8 max-w-4xl mx-auto w-full">
@@ -176,7 +175,7 @@ export function SessionDetailView({ sessionId }: SessionDetailViewProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-4 text-center">
           <p className="text-stone-600 text-xs mb-1">Total Items</p>
           <p className="text-2xl font-bold text-stone-900">
@@ -184,16 +183,20 @@ export function SessionDetailView({ sessionId }: SessionDetailViewProps) {
           </p>
         </div>
         <div className="bg-emerald-50 rounded-xl border border-emerald-200 shadow-sm p-4 text-center">
-          <p className="text-emerald-700 text-xs mb-1">Passed</p>
-          <p className="text-2xl font-bold text-emerald-900">{passCount}</p>
-        </div>
-        <div className="bg-rose-50 rounded-xl border border-rose-200 shadow-sm p-4 text-center">
-          <p className="text-rose-700 text-xs mb-1">Failed</p>
-          <p className="text-2xl font-bold text-rose-900">{failedCount}</p>
+          <p className="text-emerald-700 text-xs mb-1">Available</p>
+          <p className="text-2xl font-bold text-emerald-900">{availableCount}</p>
         </div>
         <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
-          <p className="text-amber-700 text-xs mb-1">Missing</p>
-          <p className="text-2xl font-bold text-amber-900">{missingCount}</p>
+          <p className="text-amber-700 text-xs mb-1">Maintenance</p>
+          <p className="text-2xl font-bold text-amber-900">{maintenanceCount}</p>
+        </div>
+        <div className="bg-stone-50 rounded-xl border border-stone-200 shadow-sm p-4 text-center">
+          <p className="text-amber-700 text-xs mb-1">Retired</p>
+          <p className="text-2xl font-bold text-stone-900">{retiredCount}</p>
+        </div>
+        <div className="bg-rose-50 rounded-xl border border-rose-200 shadow-sm p-4 text-center">
+          <p className="text-rose-700 text-xs mb-1">Lost</p>
+          <p className="text-2xl font-bold text-rose-900">{lostCount}</p>
         </div>
       </div>
 

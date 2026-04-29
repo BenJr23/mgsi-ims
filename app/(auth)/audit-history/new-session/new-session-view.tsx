@@ -8,11 +8,14 @@ import {
     addAuditItemAction,
     completeAuditSessionAction,
     cancelAuditSessionAction,
-} from "@/app/_actions/audit-history";
+} from "../../../_actions/audit-history";
 import { fetchBranchesAction, type BranchItem } from "@/app/_actions/branches";
+import { fetchEquipmentAction } from "@/app/_actions/equipment";
 import { ScannerModal } from "@/app/(auth)/components/ScannerModal";
 import { AuditItemList } from "@/app/(auth)/components/AuditItemList";
-import type { AuditSessionItemDetail } from "@/app/_actions/audit-history";
+import { AuditStatusSelectionModal } from "@/app/(auth)/components/modals/AuditStatusSelectionModal";
+import type { AuditSessionItemDetail } from "../../../_actions/audit-history";
+import type { AuditItemStatus } from "@/app/generated/prisma/enums";
 
 type NewSessionViewProps = {
     sessionId: string;
@@ -30,6 +33,10 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     const [branches, setBranches] = useState<BranchItem[]>([]);
     const [selectedBranchId, setSelectedBranchId] = useState("");
     const [selectedAreaId, setSelectedAreaId] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState<AuditItemStatus>("AVAILABLE");
+    const [isStatusSelectionOpen, setIsStatusSelectionOpen] = useState(false);
+    const [remainingEquipmentIds, setRemainingEquipmentIds] = useState<string[]>([]);
+    const [remainingItemCount, setRemainingItemCount] = useState(0);
 
     // Fetch session details on mount
     useEffect(() => {
@@ -100,7 +107,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
 
     const handleAddItem = async (
         equipmentId: string,
-        status: "PASS" | "FAIL" | "MISSING",
+        status: AuditItemStatus,
         notes?: string,
         keepScannerOpen = false
     ) => {
@@ -119,6 +126,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                 if (sessionResult.ok) {
                     setItems(sessionResult.session.items);
                 }
+                setSelectedStatus("AVAILABLE");
                 if (!keepScannerOpen) {
                     setIsScannerOpen(false);
                 }
@@ -131,16 +139,35 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     };
 
     const handleCompleteSession = async () => {
-        if (
-            !confirm(
-                `Complete this audit session with ${items.length} items scanned?`
-            )
-        ) {
+        if (!selectedArea) {
+            setError("Select a branch and area before completing the session.");
             return;
         }
 
         setIsLoading(true);
         try {
+            const scannedEquipmentIds = new Set(items.map((item) => item.equipmentId));
+
+            if (selectedEquipmentTotal > items.length) {
+                const equipmentResult = await fetchEquipmentAction();
+                if (!equipmentResult.ok) {
+                    setError(equipmentResult.message);
+                    return;
+                }
+
+                const remainingEquipmentIds = equipmentResult.equipment
+                    .filter((equipment) => equipment.areaId === selectedArea.id)
+                    .map((equipment) => equipment.id)
+                    .filter((equipmentId) => !scannedEquipmentIds.has(equipmentId));
+
+                if (remainingEquipmentIds.length > 0) {
+                    setRemainingEquipmentIds(remainingEquipmentIds);
+                    setRemainingItemCount(remainingEquipmentIds.length);
+                    setIsStatusSelectionOpen(true);
+                    return;
+                }
+            }
+
             const result = await completeAuditSessionAction(sessionId);
             if (result.ok) {
                 router.push(`/audit-history/${sessionId}`);
@@ -149,6 +176,47 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             }
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleApplyRemainingStatus = async (status: AuditItemStatus) => {
+        if (!selectedArea || remainingEquipmentIds.length === 0) {
+            setIsStatusSelectionOpen(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const fillResults = await Promise.all(
+                remainingEquipmentIds.map((equipmentId) =>
+                    addAuditItemAction(sessionId, equipmentId, status)
+                )
+            );
+
+            for (const result of fillResults) {
+                if (!result.ok) {
+                    setError(result.message);
+                    return;
+                }
+            }
+
+            const refreshedSession = await getAuditSessionDetailAction(sessionId);
+            if (refreshedSession.ok) {
+                setItems(refreshedSession.session.items);
+            }
+
+            const completeResult = await completeAuditSessionAction(sessionId);
+            if (completeResult.ok) {
+                router.push(`/audit-history/${sessionId}`);
+                return;
+            }
+
+            setError(completeResult.message);
+        } finally {
+            setIsLoading(false);
+            setIsStatusSelectionOpen(false);
+            setRemainingEquipmentIds([]);
+            setRemainingItemCount(0);
         }
     };
 
@@ -311,9 +379,9 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-blue-900 text-sm">
                     <span className="font-semibold">Instructions:</span> Pick the branch and area first, then press
-                    &quot;Start Scanning&quot; → scan QR → choose Pass / Failed / Missing once and keep scanning with the
-                    same status until you change it → use &quot;Add Another&quot; for continuous scanning or &quot;Save&quot; to
-                    finish the current item.
+                    &quot;Start Scanning&quot; → scan QR → choose Available, Maintenance, Retired, or Lost for that item →
+                    use &quot;Add Another&quot; for continuous scanning or &quot;Save&quot; to finish the current item. The next item
+                    starts from Available again, so choose it per scan.
                 </p>
             </div>
 
@@ -329,12 +397,27 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             <ScannerModal
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
+                selectedStatus={selectedStatus}
+                onSelectedStatusChange={setSelectedStatus}
                 onSave={async (equipmentId, status, notes) => {
                     await handleAddItem(equipmentId, status, notes);
                 }}
                 onAddAnother={async (equipmentId, status, notes) => {
                     await handleAddItem(equipmentId, status, notes, true);
                 }}
+                isLoading={isLoading}
+            />
+
+            <AuditStatusSelectionModal
+                isOpen={isStatusSelectionOpen}
+                itemCount={remainingItemCount}
+                areaName={selectedArea?.name ?? "selected area"}
+                onCancel={() => {
+                    setIsStatusSelectionOpen(false);
+                    setRemainingEquipmentIds([]);
+                    setRemainingItemCount(0);
+                }}
+                onApply={handleApplyRemainingStatus}
                 isLoading={isLoading}
             />
         </main>

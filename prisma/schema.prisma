@@ -229,9 +229,10 @@ enum AuditSessionStatus {
 }
 
 enum AuditItemStatus {
-  PASS
-  FAIL
-  MISSING
+  AVAILABLE
+  MAINTENANCE
+  RETIRED
+  LOST
 }
 
 model AuditSession {
@@ -255,7 +256,7 @@ model AuditSessionItem {
   id          String             @id @default(cuid())
   sessionId   String
   equipmentId String
-  status      AuditItemStatus    @default(PASS)
+  status      AuditItemStatus    @default(AVAILABLE)
   notes       String?
   scannedAt   DateTime           @default(now())
   session     AuditSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
