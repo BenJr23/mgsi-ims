@@ -327,54 +327,13 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                 </button>
             </div>
 
-            {/* Branch / Area Selector */}
+            {/* Session Location (Read-only) */}
             <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-5 space-y-4">
                 <div>
                     <h2 className="text-lg font-semibold text-stone-900">Session Location</h2>
                     <p className="text-sm text-stone-600">
-                        Choose the branch and area before scanning. The selected area count is used as the scan target.
+                        Branch and area are locked from session start and shown here for reference.
                     </p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                    <label className="space-y-2">
-                        <span className="block text-sm font-medium text-stone-700">Branch</span>
-                        <select
-                            value={selectedBranchId}
-                            onChange={(event) => {
-                                const branchId = event.target.value;
-                                const nextBranch = branches.find((branch) => branch.id === branchId) ?? null;
-                                setSelectedBranchId(branchId);
-                                setSelectedAreaId(nextBranch?.areas?.[0]?.id ?? "");
-                            }}
-                            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            disabled={true}
-                        >
-                            <option value="">Select a branch</option>
-                            {branches.map((branch) => (
-                                <option key={branch.id} value={branch.id}>
-                                    {branch.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <label className="space-y-2">
-                        <span className="block text-sm font-medium text-stone-700">Area</span>
-                        <select
-                            value={selectedAreaId}
-                            onChange={(event) => setSelectedAreaId(event.target.value)}
-                            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            disabled={true}
-                        >
-                            <option value="">Select an area</option>
-                            {selectedAreas.map((area) => (
-                                <option key={area.id} value={area.id}>
-                                    {area.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-3">
