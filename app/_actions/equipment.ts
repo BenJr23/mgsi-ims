@@ -72,6 +72,8 @@ export type EquipmentLookupDetail = {
 	status: EquipmentStatus;
 	modelName: string;
 	modelType: string;
+	areaId: string;
+	branchId: string;
 	areaName: string;
 	branchName: string;
 };
@@ -279,10 +281,26 @@ async function removeSoftDeletedFromCachedEquipment(
 	return cachedEquipment.filter((item) => activeEquipmentIds.has(item.id));
 }
 
-export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
+type FetchEquipmentOptions = {
+	areaId?: string;
+};
+
+export async function fetchEquipmentAction(
+	options: FetchEquipmentOptions = {},
+): Promise<FetchEquipmentResult> {
 	const traceId = `equipment_fetch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 	const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
 	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+	const selectedAreaId = options.areaId?.trim() ?? "";
+	const applyAreaFilter = Boolean(selectedAreaId);
+
+	const filterBySelectedArea = (equipment: EquipmentListItem[]) => {
+		if (!applyAreaFilter) {
+			return equipment;
+		}
+
+		return equipment.filter((item) => item.areaId === selectedAreaId);
+	};
 
 	try {
 		if (redisUrl && redisToken) {
@@ -295,6 +313,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 				if (cacheResponse.result) {
 					const cachedEquipment = JSON.parse(cacheResponse.result) as EquipmentListItem[];
 					const sanitizedEquipment = await removeSoftDeletedFromCachedEquipment(cachedEquipment);
+					const filteredEquipment = filterBySelectedArea(sanitizedEquipment);
 
 					if (sanitizedEquipment.length !== cachedEquipment.length) {
 						console.log("[Equipment Action] Removed soft-deleted rows from cache payload", {
@@ -326,12 +345,12 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 					console.log("[Equipment Action] Cache hit", {
 						traceId,
 						key: EQUIPMENT_CACHE_KEY,
-						count: sanitizedEquipment.length,
+						count: filteredEquipment.length,
 					});
 
 					return {
 						ok: true,
-						equipment: sanitizedEquipment,
+						equipment: filteredEquipment,
 					};
 				}
 
@@ -424,9 +443,12 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 			}).format(item.createdAt),
 		}));
 
+		const filteredEquipment = filterBySelectedArea(formattedEquipment);
+
 		console.log("[Equipment Action] Fetched equipment", {
 			traceId,
-			count: formattedEquipment.length,
+			count: filteredEquipment.length,
+			areaId: selectedAreaId || null,
 		});
 
 		if (redisUrl && redisToken) {
@@ -455,7 +477,7 @@ export async function fetchEquipmentAction(): Promise<FetchEquipmentResult> {
 
 		return {
 			ok: true,
-			equipment: formattedEquipment,
+			equipment: filteredEquipment,
 		};
 	} catch (error) {
 		console.error("[Equipment Action] Fetch failed", {
@@ -520,8 +542,13 @@ export async function findEquipmentBySkuAction(
 			};
 		}
 
-		const areaName = equipment.areaId;
-		const branchName = "Unknown branch";
+		const branchesResult = await fetchBranchesAction();
+		const matchedBranch = branchesResult.ok
+			? branchesResult.branches.find((branch) =>
+				(branch.areas ?? []).some((area) => area.id === equipment.areaId),
+			)
+			: null;
+		const matchedArea = matchedBranch?.areas?.find((area) => area.id === equipment.areaId) ?? null;
 
 		return {
 			ok: true,
@@ -532,8 +559,10 @@ export async function findEquipmentBySkuAction(
 				status: equipment.status,
 				modelName: equipment.equipmentModel.name,
 				modelType: equipment.equipmentModel.type,
-				areaName,
-				branchName,
+				areaId: equipment.areaId,
+				branchId: matchedBranch?.id ?? "",
+				areaName: matchedArea?.name ?? equipment.areaId,
+				branchName: matchedBranch?.name ?? "Unknown branch",
 			},
 		};
 	} catch (error) {

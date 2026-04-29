@@ -149,14 +149,15 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             const scannedEquipmentIds = new Set(items.map((item) => item.equipmentId));
 
             if (selectedEquipmentTotal > items.length) {
-                const equipmentResult = await fetchEquipmentAction();
+                const equipmentResult = await fetchEquipmentAction({
+                    areaId: selectedArea.id,
+                });
                 if (!equipmentResult.ok) {
                     setError(equipmentResult.message);
                     return;
                 }
 
                 const remainingEquipmentIds = equipmentResult.equipment
-                    .filter((equipment) => equipment.areaId === selectedArea.id)
                     .map((equipment) => equipment.id)
                     .filter((equipmentId) => !scannedEquipmentIds.has(equipmentId));
 
@@ -397,6 +398,10 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             <ScannerModal
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
+                selectedBranchId={selectedBranch?.id ?? ""}
+                selectedAreaId={selectedArea?.id ?? ""}
+                selectedBranchName={selectedBranch?.name}
+                selectedAreaName={selectedArea?.name}
                 selectedStatus={selectedStatus}
                 onSelectedStatusChange={setSelectedStatus}
                 onSave={async (equipmentId, status, notes) => {

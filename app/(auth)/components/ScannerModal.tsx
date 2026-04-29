@@ -23,6 +23,10 @@ const STATUS_OPTIONS: StatusOption[] = [
 type ScannerModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  selectedBranchId: string;
+  selectedAreaId: string;
+  selectedBranchName?: string;
+  selectedAreaName?: string;
   selectedStatus: AuditItemStatus;
   onSelectedStatusChange: (status: AuditItemStatus) => void;
   onSave: (equipmentId: string, status: AuditItemStatus, notes?: string) => void | Promise<void>;
@@ -33,6 +37,10 @@ type ScannerModalProps = {
 export function ScannerModal({
   isOpen,
   onClose,
+  selectedBranchId,
+  selectedAreaId,
+  selectedBranchName,
+  selectedAreaName,
   selectedStatus,
   onSelectedStatusChange,
   onSave,
@@ -225,6 +233,20 @@ export function ScannerModal({
 
     void (async () => {
       try {
+        const selectedBranchLabel = selectedBranchName ?? "the selected branch";
+        const selectedAreaLabel = selectedAreaName ?? "the selected area";
+        const branchMatches = equipmentDetail.branchId === selectedBranchId;
+        const areaMatches = equipmentDetail.areaId === selectedAreaId;
+
+        if (!branchMatches || !areaMatches) {
+          setEquipmentDetail(null);
+          setEquipmentError(
+            `${equipmentDetail.modelName} belongs to ${equipmentDetail.branchName} / ${equipmentDetail.areaName}. Select ${selectedBranchLabel} and ${selectedAreaLabel} or rescan the correct item.`
+          );
+          setIsEquipmentLoading(false);
+          return;
+        }
+
         await onAddAnother(equipmentDetail.id, selectedStatus, notes || undefined);
         setScannedQR(null);
         setIsDetecting(false);
@@ -243,6 +265,10 @@ export function ScannerModal({
     isEquipmentLoading,
     notes,
     onAddAnother,
+    selectedAreaId,
+    selectedAreaName,
+    selectedBranchId,
+    selectedBranchName,
     scannedQR,
     selectedStatus,
   ]);

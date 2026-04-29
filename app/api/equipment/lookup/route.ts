@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { fetchBranchesAction } from "@/app/_actions/branches";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -50,6 +51,20 @@ export async function GET(request: Request) {
       );
     }
 
+    const branchesResult = await fetchBranchesAction();
+    if (!branchesResult.ok) {
+      return NextResponse.json(
+        { ok: false, message: branchesResult.message },
+        { status: 500 }
+      );
+    }
+
+    const matchedBranch = branchesResult.branches.find((branch) =>
+      (branch.areas ?? []).some((area) => area.id === equipment.areaId)
+    );
+
+    const matchedArea = matchedBranch?.areas?.find((area) => area.id === equipment.areaId) ?? null;
+
     return NextResponse.json({
       ok: true,
       equipment: {
@@ -59,8 +74,10 @@ export async function GET(request: Request) {
         status: equipment.status,
         modelName: equipment.equipmentModel.name,
         modelType: equipment.equipmentModel.type,
-        areaName: equipment.areaId,
-        branchName: "Unknown branch",
+        areaId: equipment.areaId,
+        branchId: matchedBranch?.id ?? "",
+        areaName: matchedArea?.name ?? equipment.areaId,
+        branchName: matchedBranch?.name ?? "Unknown branch",
       },
     });
   } catch (error) {
