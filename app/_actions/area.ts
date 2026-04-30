@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 
 
 
+
 type CreateAreaResult =
 	| {
 			ok: true;
