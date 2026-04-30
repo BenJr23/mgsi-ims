@@ -56,6 +56,11 @@ export function AuditHistoryView({
     );
 
     const selectedAreas = selectedBranch?.areas ?? [];
+    const selectedArea = useMemo(
+        () => selectedAreas.find((area) => area.id === selectedAreaId) ?? selectedAreas[0] ?? null,
+        [selectedAreas, selectedAreaId]
+    );
+    const selectedEquipmentTotal = selectedArea?.equipCount ?? selectedBranch?.equipCount ?? 0;
 
     useEffect(() => {
         if (!selectedBranch) {
@@ -69,11 +74,16 @@ export function AuditHistoryView({
         }
     }, [selectedAreaId, selectedAreas, selectedBranch]);
 
-    const canStartSession = Boolean(selectedBranchId && selectedAreaId) && !isLoadingBranches;
+    const canStartSession = Boolean(selectedBranchId && selectedAreaId) && selectedEquipmentTotal > 0 && !isLoadingBranches;
 
     const handleStartAuditSession = async () => {
         if (!selectedAreaId) {
             setError("Select an area before starting an audit session.");
+            return;
+        }
+
+        if (selectedEquipmentTotal <= 0) {
+            setError("This area has no equipment yet, so an audit session cannot be started.");
             return;
         }
 
@@ -143,6 +153,20 @@ export function AuditHistoryView({
                         ))}
                     </select>
                 </label>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 grid gap-2 md:grid-cols-[1fr_auto] md:items-center">
+                <div>
+                    <p className="text-xs uppercase tracking-wide text-yellow-700 mb-1">Equipment Total</p>
+                    <p className="text-sm text-yellow-900">
+                        {selectedArea ? `${selectedEquipmentTotal.toLocaleString()} items in ${selectedArea.name}` : "Select a branch and area to see the total."}
+                    </p>
+                </div>
+                <p className="text-xs text-yellow-800 md:text-right">
+                    {selectedEquipmentTotal > 0
+                        ? "You can start the audit session."
+                        : "Start Audit Session stays disabled until the area has at least one item."}
+                </p>
             </div>
 
             {error && (

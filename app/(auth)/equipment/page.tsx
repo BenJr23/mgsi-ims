@@ -34,7 +34,7 @@ import {
   ArchiveIcon,
   AlertTriangleIcon,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type EquipmentStatus = 'AVAILABLE' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
 
@@ -186,6 +186,10 @@ export default function EquipmentPage() {
   const [isUpdatingEquipment, setIsUpdatingEquipment] = useState(false);
   const [isDeletingEquipment, setIsDeletingEquipment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentListItem | null>(null);
   const [openMenu, setOpenMenu] = useState<{
     equipmentId: string;
@@ -194,6 +198,7 @@ export default function EquipmentPage() {
   } | null>(null);
   const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
   const filterPanelRef = useRef<HTMLDivElement>(null);
+  const successToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
@@ -324,6 +329,27 @@ export default function EquipmentPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!successNotice) {
+      return;
+    }
+
+    if (successToastTimerRef.current) {
+      clearTimeout(successToastTimerRef.current);
+    }
+
+    successToastTimerRef.current = window.setTimeout(() => {
+      setSuccessNotice(null);
+    }, 2800);
+
+    return () => {
+      if (successToastTimerRef.current) {
+        clearTimeout(successToastTimerRef.current);
+        successToastTimerRef.current = null;
+      }
+    };
+  }, [successNotice]);
+
   const metrics = useMemo(() => {
     const availableCount = equipment.filter((item) => item.status === 'AVAILABLE').length;
     const maintenanceCount = equipment.filter((item) => item.status === 'MAINTENANCE').length;
@@ -439,6 +465,10 @@ export default function EquipmentPage() {
 
       await loadEquipment();
       setIsRegisterEquipmentModalOpen(false);
+      setSuccessNotice({
+        title: 'Add successful',
+        message: `Successfully registered ${data.quantity} equipment item${data.quantity !== 1 ? 's' : ''}.`,
+      });
       return true;
     } catch {
       setError('Unable to register equipment right now. Please try again.');
@@ -1260,6 +1290,30 @@ export default function EquipmentPage() {
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {successNotice ? (
+          <motion.div
+            initial={{ x: 280, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 280, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+            className="fixed top-6 right-6 z-130 w-full max-w-sm rounded-xl border border-emerald-200 bg-white shadow-xl"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3 p-4">
+              <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-600">
+                <CheckCircle2Icon className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-700">{successNotice.title}</p>
+                <p className="text-sm text-stone-700 mt-0.5">{successNotice.message}</p>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <ViewEquipmentList
         isOpen={isViewEquipmentModalOpen}

@@ -105,6 +105,10 @@ export function ScannerModal({
 
     const startScanning = async () => {
       try {
+        if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Camera access is not available in this browser or context.");
+        }
+
         const controls = await codeReader.decodeFromVideoDevice(
           undefined, // uses default camera (environment-facing on mobile)
           videoRef.current!,
@@ -134,7 +138,7 @@ export function ScannerModal({
       } catch (error) {
         console.error("QR scanner error:", error);
         if (isActive) {
-          setCameraError("Unable to access camera. Please check permissions.");
+          setCameraError("Unable to access camera. Please check permissions or use a secure browser context.");
         }
       }
     };

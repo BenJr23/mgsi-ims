@@ -155,6 +155,10 @@ export default function EquipmentModelsContent() {
 
             await loadEquipmentModels();
             setIsAddModelModalOpen(false);
+            setSuccessNotice({
+                title: 'Add successful',
+                message: `Successfully added equipment model: ${data.name.trim() || modelData.name}`,
+            });
         } catch {
             setError('Unable to create equipment model right now. Please try again.');
         } finally {

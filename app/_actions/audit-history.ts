@@ -92,6 +92,17 @@ export async function createAuditSessionAction(areaId: string): Promise<CreateAu
       return { ok: false, message: "Area is required" };
     }
 
+    const equipmentCount = await prisma.equipment.count({
+      where: {
+        areaId: normalizedAreaId,
+        deletedAt: null,
+      },
+    });
+
+    if (equipmentCount <= 0) {
+      return { ok: false, message: "This area has no equipment yet, so an audit session cannot be started." };
+    }
+
     const auditSession = await prisma.auditSession.create({
       data: {
         startedById: session.user.id,

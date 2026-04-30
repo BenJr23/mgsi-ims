@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeftIcon, StopCircleIcon, AlertCircleIcon } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     getAuditSessionDetailAction,
     addAuditItemAction,
@@ -39,6 +40,9 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     const [isStatusSelectionOpen, setIsStatusSelectionOpen] = useState(false);
     const [remainingEquipmentIds, setRemainingEquipmentIds] = useState<string[]>([]);
     const [remainingItemCount, setRemainingItemCount] = useState(0);
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+    const [showCancelSuccessToast, setShowCancelSuccessToast] = useState(false);
+    const cancelSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Fetch session details on mount
     useEffect(() => {
@@ -239,9 +243,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
     };
 
     const handleCancelSession = async () => {
-        if (
-            !confirm("Are you sure you want to cancel this audit session?")
-        ) {
+        if (!isCancelModalOpen) {
             return;
         }
 
@@ -249,7 +251,17 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
         try {
             const result = await cancelAuditSessionAction(sessionId);
             if (result.ok) {
-                router.push("/audit-history");
+                setIsCancelModalOpen(false);
+                setShowCancelSuccessToast(true);
+
+                if (cancelSuccessTimerRef.current) {
+                    clearTimeout(cancelSuccessTimerRef.current);
+                }
+
+                cancelSuccessTimerRef.current = setTimeout(() => {
+                    setShowCancelSuccessToast(false);
+                    router.push("/audit-history");
+                }, 1400);
             } else {
                 setError(result.message);
             }
@@ -257,6 +269,15 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        return () => {
+            if (cancelSuccessTimerRef.current) {
+                clearTimeout(cancelSuccessTimerRef.current);
+                cancelSuccessTimerRef.current = null;
+            }
+        };
+    }, []);
 
     if (isFetching) {
         return (
@@ -318,7 +339,7 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                     ✓ Stop Audit Session
                 </button>
                 <button
-                    onClick={handleCancelSession}
+                    onClick={() => setIsCancelModalOpen(true)}
                     disabled={isLoading || sessionStatus !== "IN_PROGRESS"}
                     className="flex-1 min-w-50 bg-stone-600 hover:bg-stone-700 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -401,6 +422,98 @@ export function NewSessionView({ sessionId }: NewSessionViewProps) {
                 onApply={handleApplyRemainingStatus}
                 isLoading={isLoading}
             />
+
+            <AnimatePresence>
+                {isCancelModalOpen ? (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+                            onClick={() => !isLoading && setIsCancelModalOpen(false)}
+                            aria-hidden="true"
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                            transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                            className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-stone-200 overflow-hidden"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="cancel-session-title"
+                        >
+                            <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+                                <div>
+                                    <h2 id="cancel-session-title" className="text-xl font-semibold text-stone-900">
+                                        Cancel Audit Session
+                                    </h2>
+                                    <p className="text-sm text-stone-600">
+                                        This will stop the current session and keep the scanned items already saved.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCancelModalOpen(false)}
+                                    className="rounded-lg p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
+                                    aria-label="Close modal"
+                                    disabled={isLoading}
+                                >
+                                    <AlertCircleIcon className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="px-6 py-5 space-y-3">
+                                <p className="text-sm text-stone-700">
+                                    Are you sure you want to cancel this audit session?
+                                </p>
+                                <p className="text-xs text-stone-500">
+                                    You can still start a new audit session later, but this one will be marked cancelled.
+                                </p>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 border-t border-stone-200 bg-stone-50 px-6 py-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCancelModalOpen(false)}
+                                    disabled={isLoading}
+                                    className="rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
+                                >
+                                    Keep Session
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleCancelSession()}
+                                    disabled={isLoading}
+                                    className="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+                                >
+                                    {isLoading ? "Cancelling..." : "Yes, Cancel"}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                ) : null}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {showCancelSuccessToast ? (
+                    <motion.div
+                        initial={{ opacity: 0, x: 40 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 40 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        className="fixed right-4 top-6 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-xl"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <p className="text-sm font-semibold text-emerald-900">Cancelled successfully</p>
+                        <p className="text-sm text-emerald-800">The audit session was cancelled and you are being redirected.</p>
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
         </main>
     );
 }
