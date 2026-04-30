@@ -198,7 +198,7 @@ export default function EquipmentPage() {
   } | null>(null);
   const [printQuantities, setPrintQuantities] = useState<Record<string, string>>({});
   const filterPanelRef = useRef<HTMLDivElement>(null);
-  const successToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const successToastTimerRef = useRef<number | null>(null);
 
   const loadSupportData = async () => {
     setIsLoadingSupportData(true);
