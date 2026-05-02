@@ -6,8 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 
 
-
-
 type CreateAreaResult =
 	| {
 			ok: true;
