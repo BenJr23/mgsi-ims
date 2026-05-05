@@ -456,27 +456,31 @@ export function ScannerModal({
             </button>
           ) : (
             <>
-              <button
-                onClick={handleRescan}
-                className="flex-1 px-4 py-2 border border-stone-200 text-stone-700 font-medium rounded-lg hover:bg-stone-100 transition disabled:opacity-50"
-                disabled={isLoading}
-              >
-                Rescan
-              </button>
-              <button
-                onClick={handleAddAnother}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                disabled={isLoading || isEquipmentLoading || !equipmentDetail}
-              >
-                {isLoading ? "Saving..." : "Add Another"}
-              </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-                disabled={isLoading || isEquipmentLoading || !equipmentDetail}
-              >
-                {isLoading ? "Saving..." : "Save"}
-              </button>
+              {equipmentError ? (
+                <>
+                  <button
+                    onClick={handleRescan}
+                    className="flex-1 px-4 py-2 border border-stone-200 text-stone-700 font-medium rounded-lg hover:bg-stone-100 transition disabled:opacity-50"
+                    disabled={isLoading}
+                  >
+                    Rescan
+                  </button>
+                  <button
+                    onClick={handleClose}
+                    className="flex-1 px-4 py-2 border border-stone-200 text-stone-700 font-medium rounded-lg hover:bg-stone-100 transition disabled:opacity-50"
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                    <p className="text-sm font-medium text-stone-700">Saving...</p>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
