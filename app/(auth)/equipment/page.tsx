@@ -102,6 +102,60 @@ function getEquipmentQrDisplay(sku: string | null, qrCode: string): string {
   }
 }
 
+function calculateEquipmentAge(purchaseDate: string | null): { years: number; months: number } | null {
+  if (!purchaseDate) return null;
+  
+  const purchase = new Date(purchaseDate);
+  const today = new Date();
+  
+  let years = today.getFullYear() - purchase.getFullYear();
+  let months = today.getMonth() - purchase.getMonth();
+  
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  
+  return { years, months };
+}
+
+function getAgeStatus(purchaseDate: string | null): { label: string; color: string } {
+  const age = calculateEquipmentAge(purchaseDate);
+  
+  if (!age) {
+    return { label: 'Unknown', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+  }
+  
+  if (age.years < 1) {
+    return { label: 'New', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+  }
+  
+  if (age.years < 3) {
+    return { label: 'Fully-Functional', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+  }
+  
+  if (age.years < 7) {
+    return { label: 'Limited', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+  }
+  
+  return { label: 'Restricted', color: 'bg-orange-100 text-orange-800 border-orange-200' };
+}
+
+function formatAge(purchaseDate: string | null): string {
+  const age = calculateEquipmentAge(purchaseDate);
+  if (!age) return '—';
+  
+  if (age.years === 0) {
+    return age.months === 1 ? '1 month' : `${age.months} months`;
+  }
+  
+  if (age.months === 0) {
+    return age.years === 1 ? '1 year' : `${age.years} years`;
+  }
+  
+  return `${age.years}y ${age.months}m`;
+}
+
 const waitForImagesToLoad = (documentRoot: Document) => {
   const images = Array.from(documentRoot.images);
 
@@ -1182,6 +1236,12 @@ export default function EquipmentPage() {
                     Location
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
+                    Age
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
+                    Age Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-stone-500 uppercase tracking-wider">
                     Registered
                   </th>
                   <th scope="col" className="relative px-6 py-3">
@@ -1229,6 +1289,18 @@ export default function EquipmentPage() {
                           <p className="text-sm text-stone-900">{item.areaName}</p>
                           <p className="text-xs text-stone-500">{item.branchName}</p>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-sm text-stone-700">{formatAge(item.purchaseDate)}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {item.purchaseDate ? (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getAgeStatus(item.purchaseDate).color}`}>
+                            {getAgeStatus(item.purchaseDate).label}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-stone-400">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -1280,7 +1352,7 @@ export default function EquipmentPage() {
                 })}
                 {!isLoadingEquipment && filteredEquipment.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-stone-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-sm text-stone-500">
                       No equipment records found.
                     </td>
                   </tr>
